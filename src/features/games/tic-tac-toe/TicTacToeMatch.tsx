@@ -10,7 +10,7 @@ import { seatStyle, turnStatus } from '../../matches/presentation';
 import { canAct, useEngineAction } from '../../matches/useEngineAction';
 import type { MatchController } from '../../matches/useMatch';
 
-const stateSchema = z.object({
+export const stateSchema = z.object({
   board: z.array(z.union([z.literal(0), z.literal(1), z.null()])).length(9),
   turn: z.number(),
   moveCount: z.number(),

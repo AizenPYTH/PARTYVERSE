@@ -1,7 +1,7 @@
 import { Chess, type Square } from 'chess.js';
 import { Pressable, StyleSheet, Text as RNText, View, useWindowDimensions } from 'react-native';
 
-import { colors, tint } from '@/design-system';
+import { boardColors, colors, tint } from '@/design-system';
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const;
 // Solid glyphs for both colors + U+FE0E to force text (not emoji) presentation.
@@ -45,9 +45,9 @@ export function ChessBoard({ fen, orientation, selected, targets = [], lastMove,
               square === selected
                 ? colors.violetSoft
                 : square === checkSquare
-                  ? 'rgba(255,92,114,0.45)'
+                  ? boardColors.danger
                   : lastMove && (square === lastMove.from || square === lastMove.to)
-                    ? 'rgba(255,181,71,0.32)'
+                    ? boardColors.lastMove
                     : null;
             return (
               <Pressable
@@ -96,10 +96,10 @@ const styles = StyleSheet.create({
   square: { alignItems: 'center', justifyContent: 'center' },
   piece: { textAlign: 'center', includeFontPadding: false },
   white: { color: colors.textPrimary, textShadowColor: colors.midnight, textShadowRadius: 2, textShadowOffset: { width: 0, height: 0 } },
-  black: { color: colors.midnight, textShadowColor: 'rgba(244,242,250,0.55)', textShadowRadius: 2, textShadowOffset: { width: 0, height: 0 } },
-  dot: { position: 'absolute', backgroundColor: 'rgba(62,230,168,0.75)' },
-  captureRing: { borderWidth: 3, borderColor: 'rgba(62,230,168,0.85)' },
-  coord: { position: 'absolute', fontSize: 9, color: 'rgba(244,242,250,0.55)', fontFamily: 'Manrope_700Bold' },
+  black: { color: colors.midnight, textShadowColor: boardColors.glyphHalo, textShadowRadius: 2, textShadowOffset: { width: 0, height: 0 } },
+  dot: { position: 'absolute', backgroundColor: boardColors.hint },
+  captureRing: { borderWidth: 3, borderColor: boardColors.hintRing },
+  coord: { position: 'absolute', fontSize: 9, color: boardColors.coordinate, fontFamily: 'Manrope_700Bold' },
   rankCoord: { top: 2, left: 3 },
   fileCoord: { bottom: 1, right: 3 },
 });

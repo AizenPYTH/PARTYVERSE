@@ -64,4 +64,10 @@ export const QUICK_GAME_MAX_MINUTES = 8;
  * never offer games they cannot display). Kept in sync with MATCH_RENDERERS by
  * a unit test.
  */
-export const SUPPORTED_GAMES: ReadonlySet<string> = new Set(['connect_four', 'tic_tac_toe', 'chess_arena']);
+export const SUPPORTED_GAMES: ReadonlySet<string> = new Set([
+  'connect_four',
+  'tic_tac_toe',
+  'chess_arena',
+  'reversi',
+  'checkers',
+]);

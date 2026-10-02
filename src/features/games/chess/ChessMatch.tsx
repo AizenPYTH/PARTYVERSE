@@ -18,7 +18,7 @@ import { ChessBoard } from './ChessBoard';
 import { formatClock, movePairs, remainingMs } from './clock';
 
 const moveSchema = z.object({ from: z.string(), to: z.string(), promotion: z.string().optional(), san: z.string(), by: z.number() });
-const stateSchema = z.object({
+export const stateSchema = z.object({
   moves: z.array(moveSchema),
   fen: z.string(),
   clocks: z.tuple([z.number(), z.number()]),

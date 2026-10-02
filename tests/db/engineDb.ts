@@ -1,5 +1,5 @@
 import { GameActionError, handleGameRequest, type GameDatabase, type GameRequest } from '../../supabase/functions/game-action/handler';
-import { pool, type TestUser } from './helpers';
+import { pool, readyRoom, rpc, type MatchState, type TestUser } from './helpers';
 
 /**
  * GameDatabase backed by PostgreSQL as the real `service_role`, exactly as the
@@ -48,3 +48,28 @@ export const engineDb: GameDatabase = {
 export function gameAction(user: TestUser, request: GameRequest) {
   return handleGameRequest(engineDb, user.id, request) as Promise<{ matchId?: string; version?: number }>;
 }
+
+export interface EngineMatchState<S = Record<string, unknown>> extends MatchState {
+  match: MatchState['match'] & { state: S; active_seats: number[]; result_detail: { reason?: string } };
+  private_state: unknown;
+}
+
+/** Starts a ready room of `gameId` through the handler; returns players indexed by seat. */
+export async function startEngineMatch(gameId: string, count = 2, settings: object = {}) {
+  const { lobby, players } = await readyRoom(gameId, count, settings);
+  const { matchId } = await gameAction(players[0]!, { op: 'start', lobbyId: lobby.id });
+  const state = await rpc<EngineMatchState>(players[0]!, 'get_match_state', [matchId]);
+  const seats = state.players
+    .slice()
+    .sort((a, b) => a.seat - b.seat)
+    .map((entry) => players.find((p) => p.id === entry.user_id)!);
+  return { lobby, players, matchId: matchId!, seats };
+}
+
+/** Sends an action at the current version. */
+export async function act(matchId: string, user: TestUser, action: unknown) {
+  const state = await rpc<EngineMatchState>(user, 'get_match_state', [matchId]);
+  return gameAction(user, { op: 'action', matchId, version: state.match.version, action });
+}
+
+export const matchState = <S>(user: TestUser, matchId: string) => rpc<EngineMatchState<S>>(user, 'get_match_state', [matchId]);

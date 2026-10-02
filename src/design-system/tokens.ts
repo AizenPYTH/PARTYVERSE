@@ -34,6 +34,17 @@ export const colors = {
   navBackground: 'rgba(11,10,20,0.96)',
 } as const;
 
+/** Translucent overlays drawn on game boards (selection, hints, last move, check). */
+export const boardColors = {
+  selected: 'rgba(139,92,255,0.32)',
+  hint: 'rgba(62,230,168,0.75)',
+  hintRing: 'rgba(62,230,168,0.85)',
+  lastMove: 'rgba(255,181,71,0.32)',
+  danger: 'rgba(255,92,114,0.45)',
+  coordinate: 'rgba(244,242,250,0.55)',
+  glyphHalo: 'rgba(244,242,250,0.55)',
+} as const;
+
 export const spacing = {
   xxs: 4,
   xs: 6,

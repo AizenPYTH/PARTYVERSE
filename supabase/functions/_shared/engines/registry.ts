@@ -1,4 +1,6 @@
+import { checkers } from './checkers.ts';
 import { chess } from './chess.ts';
+import { reversi } from './reversi.ts';
 import { ticTacToe } from './tic-tac-toe.ts';
 import type { GameEngine } from './types.ts';
 
@@ -7,6 +9,8 @@ import type { GameEngine } from './types.ts';
 export const ENGINES: Record<string, GameEngine<any, any>> = {
   [ticTacToe.id]: ticTacToe,
   [chess.id]: chess,
+  [reversi.id]: reversi,
+  [checkers.id]: checkers,
 };
 
 // deno-lint-ignore no-explicit-any
