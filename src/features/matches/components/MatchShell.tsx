@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
@@ -8,6 +9,7 @@ import { PlayerAvatar } from '@/components/PlayerAvatar';
 import { Avatar, Button, IconButton, Sheet, Text, colors, sizes, useToast } from '@/design-system';
 import { confirmAction } from '@/lib/confirm';
 import { errorMessage, toAppError } from '@/lib/errors';
+import { queryKeys } from '@/lib/queryClient';
 import { formatCountdown } from '@/lib/serverClock';
 
 import { lobbiesApi } from '../../lobbies/api';
@@ -60,6 +62,7 @@ export function MatchShell({
   children,
 }: MatchShellProps) {
   const toast = useToast();
+  const queryClient = useQueryClient();
   const [sheet, setSheet] = useState<'menu' | 'chat' | null>(null);
   const [resultDismissed, setResultDismissed] = useState(false);
   const [rematchPending, setRematchPending] = useState(false);
@@ -83,6 +86,11 @@ export function MatchShell({
   }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const backToLobby = () => {
+    if (lobbyId) {
+      // The room changed while we were playing (status, readiness, party round).
+      void queryClient.invalidateQueries({ queryKey: queryKeys.lobby(lobbyId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.party(lobbyId) });
+    }
     if (lobbyId) router.dismissTo({ pathname: '/lobby/[lobbyId]', params: { lobbyId } });
     else router.replace('/');
   };
@@ -293,7 +301,7 @@ function PlayersStrip({
   scoreOf?: (player: MatchPlayer) => string | number | null;
 }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stripScroll} contentContainerStyle={styles.strip}>
       {state.players.map((player) => {
         const active = activeSeats.includes(player.seat);
         const me = player.seat === state.my_seat;
@@ -347,7 +355,9 @@ const styles = StyleSheet.create({
   players: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   side: { flex: 1, alignItems: 'center', gap: 8, padding: 8, borderRadius: 16 },
   sideText: { flex: 1, gap: 2 },
-  strip: { gap: 8 },
+  // A horizontal ScrollView otherwise grows to fill the column on web.
+  stripScroll: { flexGrow: 0 },
+  strip: { gap: 8, alignItems: 'center' },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 14, backgroundColor: colors.surface },
   chipName: { maxWidth: 90 },
   left: { opacity: 0.45 },

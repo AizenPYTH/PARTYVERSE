@@ -64,6 +64,13 @@ describe('match presentation', () => {
     expect(turnStatus(state({ status: 'finished' }, drawn), 0).text).toBe('Match nul');
   });
 
+  it('treats several winners as a team win, not a draw', () => {
+    const team = [player(0, { result: 'loss' }), player(1, { result: 'win' }), player(2, { result: 'win' })];
+    expect(turnStatus(state({ status: 'finished' }, team), 0).text).toBe('Défaite');
+    expect(turnStatus(state({ status: 'finished' }, team), 1).text).toBe('Victoire !');
+    expect(turnStatus(state({ status: 'finished' }, team), null).text).toBe('Partie terminée');
+  });
+
   it('summarizes duel rewards like the design', () => {
     const won = state({ status: 'finished', outcome: 'win', result_detail: { reason: 'line' } }, [
       player(0, { result: 'win', xp_awarded: 40, win_streak: 2 }),

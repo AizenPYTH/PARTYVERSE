@@ -72,10 +72,12 @@ function RootNavigator() {
 
   // A link opened while signed out or onboarding (cold start included) is
   // remembered and opened once the player is in the app.
+  // Only once auth is resolved: a signed-in cold start opens its URL directly,
+  // and replaying it would push the same screen twice.
   const linkingUrl = Linking.useLinkingURL();
   useEffect(() => {
-    if (!inApp) usePendingLink.getState().remember(linkingUrl);
-  }, [linkingUrl, inApp]);
+    if (!resolving && !inApp) usePendingLink.getState().remember(linkingUrl);
+  }, [linkingUrl, inApp, resolving]);
   useEffect(() => {
     if (!inApp || resolving) return;
     const path = usePendingLink.getState().take();

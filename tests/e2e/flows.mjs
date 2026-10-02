@@ -21,7 +21,7 @@ const step = async (name, run) => {
   } catch (error) {
     results.push({ name, ok: false });
     await Promise.all(players.map((p) => shot(p.page, `failure-${p.displayName}`).catch(() => undefined)));
-    console.log(`  ✕ ${name}\n    ${String(error?.message ?? error).split('\n').slice(0, 6).join('\n    ')}`);
+    console.log(`  ✕ ${name}\n    ${String(error?.message ?? error).split('\n').slice(0, 24).join('\n    ')}`);
     throw error;
   }
 };
@@ -41,9 +41,9 @@ async function newPlayer(browser, handle, displayName) {
   return { context, page, handle: `${handle}_${suffix}`, displayName, email: `${handle}.${suffix}@e2e.test` };
 }
 
-async function signUpAndOnboard(player, avatarName) {
+async function signUpAndOnboard(player, avatarName, startUrl = BASE_URL) {
   const { page } = player;
-  await page.goto(BASE_URL);
+  await page.goto(startUrl);
   await button(page, 'Créer un compte').click();
   await page.getByLabel('E-mail').fill(player.email);
   await page.getByLabel('Mot de passe', { exact: true }).fill('partyverse42');
@@ -63,7 +63,20 @@ async function signUpAndOnboard(player, avatarName) {
   await button(page, 'Créer mon profil').click();
   await page.getByText('Retrouve tes amis').waitFor();
   await button(page, 'C’est parti !').click();
-  await page.getByText(new RegExp(`, ${player.displayName}$`)).waitFor({ timeout: 15_000 });
+  if (startUrl === BASE_URL) await page.getByText(new RegExp(`, ${player.displayName}$`)).waitFor({ timeout: 15_000 });
+}
+
+const visibleText = (page, text) => page.getByText(text).filter({ visible: true }).first();
+
+/** Polls until `check()` is truthy (DB-side conditions). */
+async function until(check, label, timeout = 20_000) {
+  const end = Date.now() + timeout;
+  for (;;) {
+    const value = await check();
+    if (value) return value;
+    if (Date.now() > end) throw new Error(`timed out waiting for ${label}`);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
 }
 
 async function playerOnTurn(a, b) {
@@ -392,6 +405,121 @@ async function main() {
       if (paid.rows[0].n !== 1) throw new Error(`quest paid ${paid.rows[0].n} times`);
     }
     await shot(nova.page, '17-quests');
+  });
+
+  const mila = await newPlayer(browser, 'mila', 'Mila');
+  players.push(mila);
+  let roomId = null;
+
+  await step('a third player opens an invite link while signed out, signs up and lands in the room', async () => {
+    const { rows } = await db.query(
+      `select l.id, l.code from public.lobbies l join public.profiles p on p.id = l.host_id
+        where p.username = $1 and l.status in ('waiting', 'ready') order by l.created_at desc limit 1`,
+      [nova.handle],
+    );
+    roomId = rows[0].id;
+    await nova.page.goto(`${BASE_URL}/lobby/${roomId}`);
+    await button(nova.page, 'Options du salon').click();
+    await testId(nova.page, 'lobby-seats-3').click();
+    await until(async () => (await db.query('select max_players from public.lobbies where id = $1', [roomId])).rows[0].max_players === 3, 'room of 3');
+    await nova.page.keyboard.press('Escape');
+
+    // Cold start on the deep link, signed out: the link is replayed after onboarding.
+    await signUpAndOnboard(mila, 'Nébuleuse verte', `${BASE_URL}/join/${rows[0].code}`);
+    await until(
+      async () => (await db.query(`select 1 from public.lobby_members m join public.profiles p on p.id = m.user_id where m.lobby_id = $1 and p.username = $2`, [roomId, mila.handle])).rowCount === 1,
+      'Mila in the room',
+    );
+    await mila.page.waitForURL(new RegExp(`/lobby/${roomId}`), { timeout: 15_000 });
+    await shot(mila.page, '18-deep-link-after-signup');
+  });
+
+  await step('Party: host chains Impostor and Memory in the same room', async () => {
+    // Everyone waits in the room (the lobby screen follows the room into its matches).
+    for (const player of [nova, leo]) await player.page.goto(`${BASE_URL}/lobby/${roomId}`);
+    await testId(nova.page, 'party-setup').click();
+    await testId(nova.page, 'party-format-custom').click();
+    await button(nova.page, 'Impostor').click();
+    await button(nova.page, 'Memory').click();
+    await testId(nova.page, 'party-start').click();
+    await visibleText(nova.page, /Lancer la manche 1 · Impostor/).waitFor({ timeout: 15_000 });
+    await testId(nova.page, 'party-next').click();
+    for (const player of [nova, leo, mila]) await visibleText(player.page, 'IMPOSTOR · MANCHE').or(visibleText(player.page, /^IMPOSTOR/)).waitFor({ timeout: 20_000 });
+  });
+
+  await step('Impostor: secret words, clue turns, discussion, secret vote, last guess', async () => {
+    const trio = [nova, leo, mila];
+    const match = await until(async () => (await db.query(
+      `select m.id from public.matches m where m.lobby_id = $1 and m.game_id = 'impostor' and m.status = 'active'`, [roomId])).rows[0], 'impostor match');
+    const seats = (await db.query(
+      `select mp.seat, p.username from public.match_players mp join public.profiles p on p.id = mp.user_id where mp.match_id = $1`, [match.id])).rows;
+    const bySeat = (seat) => trio.find((p) => p.handle === seats.find((s) => s.seat === seat).username);
+    const server = (await db.query(`select state from public.match_server_state where match_id = $1`, [match.id])).rows[0].state;
+
+    // Every player sees only their own word.
+    for (const player of trio) await testId(player.page, 'impostor-word').waitFor({ timeout: 15_000 });
+    const impostorPlayer = bySeat(server.impostor);
+    const civilianWordShown = await testId(bySeat((server.impostor + 1) % 3).page, 'impostor-word').textContent();
+    if (civilianWordShown !== server.civilianWord) throw new Error('civilian did not get the shared word');
+    if ((await testId(impostorPlayer.page, 'impostor-word').textContent()) === server.civilianWord) throw new Error('impostor got the shared word');
+
+    for (let clue = 0; clue < 6; clue++) {
+      const { rows } = await db.query(`select current_turn_seat from public.matches where id = $1`, [match.id]);
+      const player = bySeat(rows[0].current_turn_seat);
+      await testId(player.page, 'impostor-input').fill(`indice${clue}`);
+      await testId(player.page, 'impostor-submit').click();
+      await until(async () => (await db.query(`select jsonb_array_length(state -> 'clues') as n from public.matches where id = $1`, [match.id])).rows[0].n > clue, `clue ${clue}`);
+    }
+    for (const player of trio) {
+      await testId(player.page, 'impostor-ready').click();
+    }
+    await until(async () => (await db.query(`select state ->> 'phase' as phase from public.matches where id = $1`, [match.id])).rows[0].phase === 'vote', 'vote phase');
+    for (const [seat] of [0, 1, 2].entries()) {
+      const target = seat === server.impostor ? (server.impostor + 1) % 3 : server.impostor;
+      await testId(bySeat(seat).page, `impostor-vote-${target}`).click();
+      await until(async () => (await db.query(`select (state -> 'voted' ->> $2::int)::boolean as v from public.matches where id = $1`, [match.id, seat])).rows[0].v, `vote ${seat}`);
+    }
+    await testId(impostorPlayer.page, 'impostor-input').fill('mauvaise idée');
+    await testId(impostorPlayer.page, 'impostor-submit').click();
+    const final = await until(async () => (await db.query(`select status, result_detail ->> 'reason' as reason from public.matches where id = $1 and status = 'finished'`, [match.id])).rows[0], 'impostor finished');
+    if (final.reason !== 'impostor_caught') throw new Error(JSON.stringify(final));
+    await visibleText(nova.page, /Révélation/).waitFor({ timeout: 15_000 });
+    await shot(nova.page, '19-impostor-reveal');
+  });
+
+  await step('Party round 2 (Memory) and final standings', async () => {
+    // One match screen per player (a replayed deep link once stacked two).
+    for (const player of [nova, leo, mila]) {
+      await testId(player.page, 'match-party').waitFor({ timeout: 15_000 });
+      const count = await player.page.getByTestId('match-party').count();
+      if (count !== 1) throw new Error(`${player.displayName} has ${count} result sheets`);
+    }
+    for (const player of [nova, leo, mila]) await testId(player.page, 'match-party').click();
+    await visibleText(nova.page, /Lancer la manche 2 · Memory/).waitFor({ timeout: 15_000 });
+    await testId(nova.page, 'party-next').click();
+    const match = await until(async () => (await db.query(
+      `select m.id from public.matches m where m.lobby_id = $1 and m.game_id = 'memory_match' and m.status = 'active'`, [roomId])).rows[0], 'memory match');
+    const deck = (await db.query(`select state -> 'deck' as deck from public.match_server_state where match_id = $1`, [match.id])).rows[0].deck;
+    const trio = [nova, leo, mila];
+    const seats = (await db.query(
+      `select mp.seat, p.username from public.match_players mp join public.profiles p on p.id = mp.user_id where mp.match_id = $1`, [match.id])).rows;
+    const first = trio.find((p) => p.handle === seats.find((s) => s.seat === 0).username);
+    // The player on turn finds every pair (a pair keeps the turn).
+    for (let symbol = 0; symbol < deck.length / 2; symbol++) {
+      for (const card of deck.flatMap((value, index) => (value === symbol ? [index] : []))) {
+        const before = (await db.query('select version from public.matches where id = $1', [match.id])).rows[0].version;
+        await testId(first.page, `memory-card-${card}`).click();
+        await until(async () => (await db.query('select version from public.matches where id = $1', [match.id])).rows[0].version > before, `flip ${card}`);
+      }
+    }
+    await until(async () => (await db.query(`select status from public.matches where id = $1`, [match.id])).rows[0].status === 'finished', 'memory finished');
+    await testId(first.page, 'match-party').click();
+    await visibleText(first.page, 'Party terminée').waitFor({ timeout: 15_000 });
+    await shot(first.page, '20-party-standings');
+    const party = (await db.query(`select status, current_round from public.party_sessions where lobby_id = $1 order by created_at desc limit 1`, [roomId])).rows[0];
+    if (party.status !== 'finished' || party.current_round !== 2) throw new Error(JSON.stringify(party));
+    const scores = (await db.query(`select count(*)::int as n, max(points) as top from public.party_scores s join public.party_sessions ps on ps.id = s.session_id where ps.lobby_id = $1`, [roomId])).rows[0];
+    if (scores.n !== 3 || Number(scores.top) < 10) throw new Error(JSON.stringify(scores));
   });
 
   await step('profile shows server-side stats', async () => {

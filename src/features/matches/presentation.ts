@@ -45,6 +45,12 @@ export function turnStatus(state: MatchState, mySeat: number | null): StatusLine
   if (match.status === 'aborted') return { text: 'Partie annulée', color: colors.textSecondary };
   if (match.status !== 'active') {
     const winners = state.players.filter((p) => p.result === 'win');
+    if (winners.length > 1) {
+      // Team wins (Impostor civilians…): not a draw.
+      const mine = winners.some((p) => p.seat === mySeat);
+      if (mySeat === null) return { text: 'Partie terminée', color: colors.textPrimary };
+      return mine ? { text: 'Victoire !', color: colors.mint } : { text: 'Défaite', color: colors.coral };
+    }
     if (winners.length !== 1) return { text: 'Match nul', color: colors.textPrimary };
     const winner = winners[0]!;
     if (mySeat === null) return { text: `${displayNameOf(winner)} gagne`, color: colors.mint };
