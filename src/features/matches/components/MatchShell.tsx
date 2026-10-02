@@ -11,6 +11,7 @@ import { errorMessage, toAppError } from '@/lib/errors';
 import { formatCountdown } from '@/lib/serverClock';
 
 import { lobbiesApi } from '../../lobbies/api';
+import { useParty } from '../../party/hooks';
 import { LobbyChatSheet } from '../../lobbies/components/LobbyChatSheet';
 import { displayNameOf, initialsFor } from '../../profile/avatars';
 import type { MatchPlayer, MatchState } from '../api';
@@ -67,6 +68,9 @@ export function MatchShell({
   const lobbyId = state.match.lobby_id;
   const duel = state.players.length <= 2;
   const summary = resultSummary(state, mySeat, reasons);
+  const party = useParty(active ? null : lobbyId);
+  const partyRound =
+    party.data?.session.status === 'active' || (party.data?.rounds.some((round) => round.match_id === state.match.id) ?? false);
 
   useEffect(() => {
     if (active) return;
@@ -175,7 +179,11 @@ export function MatchShell({
         {mySeat !== null && lobbyId ? (
           <View style={styles.resultActions}>
             <Button label="Quitter" variant="secondary" style={styles.flex1} onPress={() => void quit()} />
-            <Button label="Revanche" style={styles.flex2} loading={rematchPending} onPress={() => void rematch()} testID="match-rematch" />
+            {partyRound ? (
+              <Button label="Classement de la Party" style={styles.flex2} onPress={backToLobby} testID="match-party" />
+            ) : (
+              <Button label="Revanche" style={styles.flex2} loading={rematchPending} onPress={() => void rematch()} testID="match-rematch" />
+            )}
           </View>
         ) : (
           <Button label="Retour" variant="secondary" onPress={backToLobby} />

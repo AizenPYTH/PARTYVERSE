@@ -19,6 +19,8 @@ export interface ButtonProps {
   loading?: boolean;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** Defaults to the label. */
+  accessibilityLabel?: string;
   accessibilityHint?: string;
   testID?: string;
   trailing?: ReactNode;
@@ -45,6 +47,7 @@ export function Button({
   loading = false,
   disabled = false,
   style,
+  accessibilityLabel,
   accessibilityHint,
   testID,
   trailing,
@@ -58,7 +61,7 @@ export function Button({
     <PressableScale
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: inactive, busy: loading }}
       disabled={inactive}

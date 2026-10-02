@@ -58,3 +58,9 @@ export function describeSetting(key: string, value: unknown): { label: string; v
   const meta = LABELS[key] ?? { label: key, format: (v: unknown) => String(v) };
   return { label: meta.label, value: meta.format(value) };
 }
+
+/** Player caps the host may pick: from the game minimum (or current headcount) to the game maximum. */
+export function seatOptions(gameMin: number, gameMax: number, players: number): number[] {
+  const from = Math.max(gameMin, players, 1);
+  return from > gameMax ? [] : Array.from({ length: gameMax - from + 1 }, (_, i) => from + i);
+}

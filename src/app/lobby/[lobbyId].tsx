@@ -23,7 +23,7 @@ import {
   useToast,
 } from '@/design-system';
 import { useCurrentUserId } from '@/features/auth/store';
-import { isEngineGame, isPlayable, useCatalog, useGame } from '@/features/games/catalog';
+import { isEngineGame, isPlayable, useCatalog, useGame, type Game } from '@/features/games/catalog';
 import { GameEmblem } from '@/features/games/components/GameEmblem';
 import { gameVisual } from '@/features/games/registry';
 import { lobbiesApi, type LobbyMember, type LobbyState } from '@/features/lobbies/api';
@@ -32,14 +32,19 @@ import { LobbyChatSheet } from '@/features/lobbies/components/LobbyChatSheet';
 import { EmptySlot, MemberSlot } from '@/features/lobbies/components/MemberSlot';
 import { useLobby, useLobbyMessages } from '@/features/lobbies/hooks';
 import { startLobbyMatch } from '@/features/lobbies/startMatch';
-import { describeSetting, gameSettings } from '@/features/lobbies/settings';
+import { describeSetting, gameSettings, seatOptions } from '@/features/lobbies/settings';
 import { messageText } from '@/features/lobbies/systemMessages';
+import { partyApi } from '@/features/party/api';
+import { PartyPanel } from '@/features/party/components/PartyPanel';
+import { PartySetupSheet } from '@/features/party/components/PartySetupSheet';
+import { partyPhase, upcomingRound } from '@/features/party/formats';
+import { useParty } from '@/features/party/hooks';
 import { displayNameOf } from '@/features/profile/avatars';
 import { confirmAction } from '@/lib/confirm';
 import { errorMessage, toAppError } from '@/lib/errors';
 import { queryKeys } from '@/lib/queryClient';
 
-type SheetName = 'menu' | 'invite' | 'chat' | 'member' | 'game' | null;
+type SheetName = 'menu' | 'invite' | 'chat' | 'member' | 'game' | 'party' | null;
 
 export default function LobbyScreen() {
   const { lobbyId } = useLocalSearchParams<{ lobbyId: string }>();
@@ -53,6 +58,7 @@ export default function LobbyScreen() {
   const openedMatch = useRef<string | null>(null);
   const { game } = useGame(lobby.data?.lobby.game_id);
   const catalog = useCatalog();
+  const party = useParty(lobbyId);
 
   const state = lobby.data;
   const matchId = state?.lobby.status === 'in_progress' ? state.lobby.current_match_id : null;
@@ -91,6 +97,7 @@ export default function LobbyScreen() {
       await action();
       if (success) toast.show({ message: success, tone: 'success' });
       await queryClient.invalidateQueries({ queryKey: queryKeys.lobby(lobbyId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.party(lobbyId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.home });
     } catch (error) {
       toast.show({ message: errorMessage(error), tone: 'error' });
@@ -169,12 +176,33 @@ export default function LobbyScreen() {
   }
 
   const allReady = players.length >= minPlayers && readyCount === players.length;
+  const partyActive = partyPhase(party.data) === 'next';
+  const nextRound = party.data && partyActive ? upcomingRound(party.data) : null;
+  const playNextRound = () =>
+    act(async () => {
+      const next = await partyApi.nextRound(room.id);
+      if (!next.finished) await startLobbyMatch(room.id, { network_model: next.network_model as Game['network_model'] });
+    });
   const cta = (() => {
     if (room.status === 'in_progress' && matchId) {
       return <Button label={me?.role === 'player' ? 'Reprendre la partie' : 'Regarder la partie'} onPress={() => router.push({ pathname: '/match/[matchId]', params: { matchId } })} />;
     }
     if (me?.role === 'spectator') {
       return <Text variant="caption" color={colors.textSecondary} align="center">Tu regardes ce salon en spectateur.</Text>;
+    }
+    if (partyActive && room.status !== 'in_progress') {
+      return isHost ? (
+        <Button
+          label={nextRound ? `Lancer la manche ${nextRound.round} · ${nextRound.name}` : 'Terminer la Party'}
+          testID="party-next"
+          loading={busy}
+          onPress={() => void playNextRound()}
+        />
+      ) : (
+        <Text variant="caption" color={colors.textSecondary} align="center">
+          {`Party en cours · l’hôte lance la manche ${nextRound?.round ?? ''}`}
+        </Text>
+      );
     }
     if (isHost && allReady) {
       return (
@@ -248,6 +276,14 @@ export default function LobbyScreen() {
         </View>
       ) : null}
 
+      <PartyPanel
+        party={party.data}
+        isHost={isHost}
+        userId={userId}
+        canStart={room.status !== 'in_progress' && room.source !== 'matchmaking'}
+        onSetup={() => setSheet('party')}
+      />
+
       <Card style={styles.settings}>
         {Object.entries(room.settings).map(([key, value]) => (
           <SettingRow key={key} {...describeSetting(key, value)} />
@@ -261,8 +297,20 @@ export default function LobbyScreen() {
 
       <Sheet visible={sheet === 'menu'} onClose={() => setSheet(null)} title="Options du salon">
         {room.code ? <Button label={`Partager le code ${room.code}`} icon="share" variant="secondary" onPress={share} /> : null}
-        {isHost && room.status !== 'in_progress' && room.source !== 'matchmaking' ? (
+        {isHost && room.status !== 'in_progress' && room.source !== 'matchmaking' && !partyActive ? (
           <Button label="Changer de jeu" variant="secondary" icon="games" onPress={() => setSheet('game')} />
+        ) : null}
+        {isHost && partyActive && room.status !== 'in_progress' ? (
+          <Button
+            label="Terminer la Party"
+            variant="secondary"
+            onPress={() =>
+              void act(async () => {
+                await partyApi.end(room.id);
+                setSheet(null);
+              })
+            }
+          />
         ) : null}
         {isHost && room.status !== 'in_progress' ? (
           <Button
@@ -270,6 +318,25 @@ export default function LobbyScreen() {
             variant="secondary"
             onPress={() => void act(() => lobbiesApi.updateSettings(room.id, { visibility: room.visibility === 'private' ? 'public' : 'private' }))}
           />
+        ) : null}
+        {isHost && room.status !== 'in_progress' && game && game.min_players !== game.max_players ? (
+          <View style={styles.settingEditor}>
+            <Text variant="caption" color={colors.textSecondary}>
+              Places
+            </Text>
+            <View style={styles.row}>
+              {seatOptions(game.min_players, game.max_players, players.length).map((count) => (
+                <Button
+                  key={count}
+                  testID={`lobby-seats-${count}`}
+                  label={String(count)}
+                  size="S"
+                  variant={count === room.max_players ? 'primary' : 'secondary'}
+                  onPress={() => void act(() => lobbiesApi.updateSettings(room.id, { maxPlayers: count }))}
+                />
+              ))}
+            </View>
+          </View>
         ) : null}
         {isHost && room.status !== 'in_progress' && game
           ? gameSettings(game).map((setting) => (
@@ -365,6 +432,19 @@ export default function LobbyScreen() {
         }}
       />
       <LobbyChatSheet lobbyId={room.id} visible={sheet === 'chat'} onClose={() => setSheet(null)} />
+      <PartySetupSheet
+        visible={sheet === 'party'}
+        onClose={() => setSheet(null)}
+        games={catalog.data ?? []}
+        players={players.length}
+        busy={busy}
+        onStart={(format, rounds, games) =>
+          void act(async () => {
+            await partyApi.start(room.id, format, rounds, games);
+            setSheet(null);
+          }, 'Party lancée !')
+        }
+      />
     </Screen>
   );
 }

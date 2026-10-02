@@ -34,6 +34,7 @@ export const queryKeys = {
   notifications: ['notifications'] as const,
   lobby: (lobbyId: string) => ['lobby', lobbyId] as const,
   lobbyMessages: (lobbyId: string) => ['lobby-messages', lobbyId] as const,
+  party: (lobbyId: string) => ['party', lobbyId] as const,
   publicLobbies: (gameId: string) => ['public-lobbies', gameId] as const,
   match: (matchId: string) => ['match', matchId] as const,
   leaderboard: (gameId: string, scope: string) => ['leaderboard', gameId, scope] as const,

@@ -139,7 +139,14 @@ export const lobbiesApi = {
     callRpc('set_lobby_ready', { p_lobby: lobbyId, p_ready: ready }, lobbyStatusSchema),
   updateSettings: (
     lobbyId: string,
-    patch: { name?: string; visibility?: 'public' | 'private'; allowSpectators?: boolean; autoStart?: boolean; settings?: Record<string, unknown> },
+    patch: {
+      name?: string;
+      visibility?: 'public' | 'private';
+      maxPlayers?: number;
+      allowSpectators?: boolean;
+      autoStart?: boolean;
+      settings?: Record<string, unknown>;
+    },
   ) =>
     callRpc(
       'update_lobby_settings',
@@ -147,7 +154,7 @@ export const lobbiesApi = {
         p_lobby: lobbyId,
         p_name: patch.name ?? null,
         p_visibility: patch.visibility ?? null,
-        p_max_players: null,
+        p_max_players: patch.maxPlayers ?? null,
         p_allow_spectators: patch.allowSpectators ?? null,
         p_auto_start: patch.autoStart ?? null,
         p_settings: patch.settings ?? null,

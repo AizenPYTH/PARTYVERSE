@@ -31,6 +31,12 @@ export function messageText(message: LobbyMessage): string {
       return 'Partie terminée';
     case 'match_aborted':
       return 'Partie annulée';
+    case 'party_started':
+      return `Party lancée : ${typeof message.meta.rounds === 'number' ? `${message.meta.rounds} manches` : 'c’est parti'}`;
+    case 'party_round':
+      return `Manche ${String(message.meta.round ?? '')} : ${typeof message.meta.name === 'string' ? message.meta.name : 'jeu suivant'}`;
+    case 'party_finished':
+      return 'Party terminée !';
     case 'game_changed':
       return `Nouveau jeu : ${typeof message.meta.name === 'string' ? message.meta.name : 'jeu'}`;
     default:

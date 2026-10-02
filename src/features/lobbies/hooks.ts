@@ -17,7 +17,7 @@ export function useLobby(lobbyId: string | undefined) {
           { table: 'lobby_messages', filter: `lobby_id=eq.${lobbyId}`, event: 'INSERT' },
         ]
       : [],
-    lobbyId ? [queryKeys.lobby(lobbyId), queryKeys.lobbyMessages(lobbyId)] : [],
+    lobbyId ? [queryKeys.lobby(lobbyId), queryKeys.lobbyMessages(lobbyId), queryKeys.party(lobbyId)] : [],
   );
 
   const query = useQuery({
