@@ -4,7 +4,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -64,46 +64,49 @@ function RootNavigator() {
 
   const needsOnboarding = signedIn && (onboardingFlowActive || overview.data?.profile.onboarding_completed === false);
   const inApp = signedIn && !passwordRecovery && !needsOnboarding;
-  const booting = status === 'loading' || (signedIn && !overview.data && !passwordRecovery);
+  const resolving = status === 'loading' || (signedIn && !passwordRecovery && !overview.data);
+
+  // The navigator mounts only once auth and profile are known, so the guards
+  // never redirect away from the initial URL (cold-start deep links).
+  if (resolving) {
+    return (
+      <BootScreen
+        error={overview.error ? errorMessage(overview.error) : undefined}
+        onRetry={overview.error ? () => void overview.refetch() : undefined}
+        onSignOut={overview.error ? () => void authService.signOut().catch(() => undefined) : undefined}
+      />
+    );
+  }
 
   return (
-    <View style={styles.root}>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.midnight }, animation: 'fade' }}>
-        <Stack.Protected guard={!signedIn}>
-          <Stack.Screen name="(auth)" />
-        </Stack.Protected>
-        <Stack.Protected guard={signedIn && passwordRecovery}>
-          <Stack.Screen name="reset-password" />
-        </Stack.Protected>
-        <Stack.Protected guard={signedIn && !passwordRecovery && needsOnboarding}>
-          <Stack.Screen name="onboarding" />
-        </Stack.Protected>
-        <Stack.Protected guard={inApp}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="games/[gameId]" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="lobby/[lobbyId]" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="lobby/join" options={{ animation: 'slide_from_bottom' }} />
-          <Stack.Screen name="join/[code]" />
-          <Stack.Screen name="match/[matchId]" options={{ gestureEnabled: false }} />
-          <Stack.Screen name="matchmaking/[gameId]" options={{ gestureEnabled: false }} />
-          <Stack.Screen name="friends/add" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="player/[userId]" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="leaderboard/[gameId]" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="profile/edit" options={{ animation: 'slide_from_bottom' }} />
-          <Stack.Screen name="profile/inventory" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
-        </Stack.Protected>
-        <Stack.Screen name="auth/callback" />
-      </Stack>
-      {booting ? (
-        <BootScreen
-          error={overview.error ? errorMessage(overview.error) : undefined}
-          onRetry={overview.error ? () => void overview.refetch() : undefined}
-          onSignOut={overview.error ? () => void authService.signOut().catch(() => undefined) : undefined}
-        />
-      ) : null}
-    </View>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.midnight }, animation: 'fade' }}>
+      <Stack.Protected guard={!signedIn}>
+        <Stack.Screen name="(auth)" />
+      </Stack.Protected>
+      <Stack.Protected guard={signedIn && passwordRecovery}>
+        <Stack.Screen name="reset-password" />
+      </Stack.Protected>
+      <Stack.Protected guard={signedIn && !passwordRecovery && needsOnboarding}>
+        <Stack.Screen name="onboarding" />
+      </Stack.Protected>
+      <Stack.Protected guard={inApp}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="games/[gameId]" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="lobby/[lobbyId]" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="lobby/join" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="join/[code]" />
+        <Stack.Screen name="match/[matchId]" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="matchmaking/[gameId]" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="friends/add" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="player/[userId]" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="leaderboard/[gameId]" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="profile/edit" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="profile/inventory" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
+      </Stack.Protected>
+      <Stack.Screen name="auth/callback" />
+    </Stack>
   );
 }
 

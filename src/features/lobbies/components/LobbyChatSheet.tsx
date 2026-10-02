@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Alert, FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { PlayerAvatar } from '@/components/PlayerAvatar';
 import { Button, Chip, EmptyState, ErrorState, Sheet, Text, colors, fonts, useToast } from '@/design-system';
+import { confirmAction } from '@/lib/confirm';
 import { errorMessage } from '@/lib/errors';
 
 import { useCurrentUserId } from '../../auth/store';
@@ -33,20 +34,20 @@ export function LobbyChatSheet({ lobbyId, visible, onClose }: { lobbyId: string;
     }
   };
 
-  const report = (message: LobbyMessage) => {
-    if (!message.sender_id || message.sender_id === userId) return;
-    Alert.alert('Signaler ce message ?', 'Les derniers messages de ce joueur seront joints au signalement.', [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Signaler',
-        style: 'destructive',
-        onPress: () =>
-          socialApi
-            .report({ userId: message.sender_id!, context: 'lobby_chat', reason: 'harassment', contextRef: lobbyId })
-            .then(() => toast.show({ message: 'Signalement envoyé. Merci !', tone: 'success' }))
-            .catch((error: unknown) => toast.show({ message: errorMessage(error), tone: 'error' })),
-      },
-    ]);
+  const report = async (message: LobbyMessage) => {
+    const senderId = message.sender_id;
+    if (!senderId || senderId === userId) return;
+    const confirmed = await confirmAction({
+      title: 'Signaler ce message ?',
+      message: 'Les derniers messages de ce joueur seront joints au signalement.',
+      confirmLabel: 'Signaler',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    socialApi
+      .report({ userId: senderId, context: 'lobby_chat', reason: 'harassment', contextRef: lobbyId })
+      .then(() => toast.show({ message: 'Signalement envoyé. Merci !', tone: 'success' }))
+      .catch((error: unknown) => toast.show({ message: errorMessage(error), tone: 'error' }));
   };
 
   return (
@@ -64,7 +65,7 @@ export function LobbyChatSheet({ lobbyId, visible, onClose }: { lobbyId: string;
               {messageText(item)}
             </Text>
           ) : (
-            <Pressable onLongPress={() => report(item)} accessibilityHint="Appui long pour signaler" style={styles.message}>
+            <Pressable onLongPress={() => void report(item)} accessibilityHint="Appui long pour signaler" style={styles.message}>
               <PlayerAvatar
                 player={{ avatar_id: item.sender_avatar_id, display_name: item.sender_display_name, username: item.sender_username }}
                 size={28}
@@ -118,5 +119,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontFamily: fonts.semibold,
     fontSize: 14,
+    outlineWidth: 0,
   },
 });

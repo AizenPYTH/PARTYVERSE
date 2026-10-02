@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 14,
   },
-  searchInput: { flex: 1, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, height: 48 },
+  searchInput: { flex: 1, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15, height: 48, outlineWidth: 0 },
   chips: { gap: 8, paddingRight: 20 },
   featured: { height: 168, borderRadius: 24, padding: 20, justifyContent: 'flex-end', gap: 6, overflow: 'hidden' },
   featuredArt: { position: 'absolute', right: 18, top: 18 },

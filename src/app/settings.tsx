@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { Alert, StyleSheet, Switch, View } from 'react-native';
+import { StyleSheet, Switch, View } from 'react-native';
 
 import { PlayerRow } from '@/components/PlayerRow';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -21,6 +21,7 @@ import type { UserSettings } from '@/features/profile/api';
 import { useSettings, useUpdateSettings } from '@/features/profile/hooks';
 import { socialApi, type PresenceStatus } from '@/features/social/api';
 import { useBlockedUsers, useSocialActions } from '@/features/social/hooks';
+import { confirmAction } from '@/lib/confirm';
 import { errorMessage } from '@/lib/errors';
 import { queryKeys } from '@/lib/queryClient';
 
@@ -50,19 +51,16 @@ export default function SettingsScreen() {
       })
       .catch((error: unknown) => toast.show({ message: errorMessage(error), tone: 'error' }));
 
-  const confirmDelete = () =>
-    Alert.alert(
-      'Supprimer ton compte ?',
-      'Ton profil, tes amis, ton inventaire et tes messages seront supprimés définitivement. Cette action est irréversible.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: () => authService.deleteAccount().catch((error: unknown) => toast.show({ message: errorMessage(error), tone: 'error' })),
-        },
-      ],
-    );
+  const confirmDelete = async () => {
+    const confirmed = await confirmAction({
+      title: 'Supprimer ton compte ?',
+      message: 'Ton profil, tes amis, ton inventaire et tes messages seront supprimés définitivement. Cette action est irréversible.',
+      confirmLabel: 'Supprimer',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    authService.deleteAccount().catch((error: unknown) => toast.show({ message: errorMessage(error), tone: 'error' }));
+  };
 
   const data = settings.data;
   return (
@@ -160,7 +158,7 @@ export default function SettingsScreen() {
             authService.signOutEverywhere().catch((error: unknown) => toast.show({ message: errorMessage(error), tone: 'error' }))
           }
         />
-        <Button label="Supprimer mon compte" variant="destructive" onPress={confirmDelete} />
+        <Button label="Supprimer mon compte" variant="destructive" onPress={() => void confirmDelete()} />
       </View>
     </Screen>
   );

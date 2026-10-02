@@ -47,3 +47,7 @@ yarn-error.*
 
 # test output
 coverage/
+
+# local caches (E2E binaries, builds)
+.cache/
+tests/e2e/artifacts/

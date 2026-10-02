@@ -1,5 +1,5 @@
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 
@@ -14,18 +14,25 @@ export interface TableSubscription {
  * Subscribes to Postgres changes and treats every event as an invalidation
  * signal. Data is always re-read through validated RPCs; realtime payloads
  * are never trusted as state (RLS still filters what each client receives).
+ *
+ * Returns whether the channel is currently subscribed so callers can fall
+ * back to polling while realtime is unavailable (unstable network, backend
+ * without Realtime).
  */
 export function useRealtimeInvalidation(
   channelName: string | null,
   subscriptions: TableSubscription[],
   keys: QueryKey[],
   onEvent?: (table: string, payload: unknown) => void,
-) {
+): { connected: boolean } {
   const queryClient = useQueryClient();
+  const [connected, setConnected] = useState(false);
   const keysRef = useRef(keys);
   const onEventRef = useRef(onEvent);
-  keysRef.current = keys;
-  onEventRef.current = onEvent;
+  useEffect(() => {
+    keysRef.current = keys;
+    onEventRef.current = onEvent;
+  });
   const signature = JSON.stringify(subscriptions);
 
   useEffect(() => {
@@ -51,13 +58,17 @@ export function useRealtimeInvalidation(
       );
     }
     channel.subscribe((status) => {
+      setConnected(status === 'SUBSCRIBED');
       // After a reconnection, refetch in case events were missed meanwhile.
       if (status === 'SUBSCRIBED') invalidate();
     });
 
     return () => {
       if (timer) clearTimeout(timer);
+      setConnected(false);
       void client.removeChannel(channel);
     };
   }, [channelName, signature, queryClient]);
+
+  return { connected };
 }

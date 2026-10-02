@@ -23,22 +23,11 @@ export function useSignedInEffects(enabled: boolean) {
   const toast = useToast();
   usePresenceHeartbeat(enabled);
 
-  useRealtimeInvalidation(
-    enabled && userId ? `inbox:${userId}` : null,
-    userId ? [{ table: 'notifications', filter: `user_id=eq.${userId}`, event: 'INSERT' }] : [],
-    [queryKeys.notifications, queryKeys.home, queryKeys.friendRequests, queryKeys.invitations, queryKeys.friends],
-    (_table, payload) => {
-      const row = (payload as { new?: { type?: string; payload?: { invitation_id?: string } } }).new;
-      if (row?.type !== 'lobby_invite' || !row.payload?.invitation_id) return;
-      void showInvitationToast(row.payload.invitation_id);
-    },
-  );
-
-  async function showInvitationToast(invitationId: string) {
+  const showInvitationToast = async (invitationId: string) => {
     const invitations = await queryClient.fetchQuery({ queryKey: queryKeys.invitations, queryFn: lobbiesApi.invitations });
     const invitation = invitations.find((item) => item.invitation_id === invitationId);
     if (!invitation) return;
-    if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
     toast.show({
       message: `${displayNameOf({ display_name: invitation.sender_display_name, username: invitation.sender_username })} t’invite`,
       detail: 'Salon de jeu · expire dans 15 min',
@@ -56,5 +45,16 @@ export function useSignedInEffects(enabled: boolean) {
         },
       },
     });
-  }
+  };
+
+  useRealtimeInvalidation(
+    enabled && userId ? `inbox:${userId}` : null,
+    userId ? [{ table: 'notifications', filter: `user_id=eq.${userId}`, event: 'INSERT' }] : [],
+    [queryKeys.notifications, queryKeys.home, queryKeys.friendRequests, queryKeys.invitations, queryKeys.friends],
+    (_table, payload) => {
+      const row = (payload as { new?: { type?: string; payload?: { invitation_id?: string } } }).new;
+      if (row?.type !== 'lobby_invite' || !row.payload?.invitation_id) return;
+      void showInvitationToast(row.payload.invitation_id);
+    },
+  );
 }

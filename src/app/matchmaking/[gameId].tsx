@@ -37,7 +37,7 @@ export default function MatchmakingScreen() {
       // Leaving the screen while searching cancels the ticket.
       if (!finished.current) void matchmakingApi.cancel().catch(() => undefined);
     };
-  }, [gameId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gameId]);
 
   useInterval(
     () => {

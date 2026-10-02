@@ -1,5 +1,4 @@
-import type { LobbyMessage } from './api';
-import { QUICK_MESSAGES, type QuickMessageId } from './api';
+import { QUICK_MESSAGES, type LobbyMessage, type QuickMessageId } from './api';
 
 const nameOf = (meta: Record<string, unknown>) =>
   (typeof meta.display_name === 'string' && meta.display_name) ||

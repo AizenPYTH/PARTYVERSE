@@ -65,5 +65,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: fonts.bold,
     fontSize: 15,
+    outlineWidth: 0,
   },
 });

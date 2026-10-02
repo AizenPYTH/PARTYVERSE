@@ -1,5 +1,4 @@
-import { useFocusEffect } from 'expo-router';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 

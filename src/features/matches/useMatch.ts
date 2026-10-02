@@ -14,12 +14,18 @@ const TIMEOUT_CLAIM_GRACE_MS = 1500;
 
 /**
  * Live match state. The server is authoritative for moves, turns, clocks and
- * results: this hook only reads state (realtime-invalidated, with a slow
- * polling safety net), submits intents and asks the server to enforce clocks.
+ * results: this hook only reads state (realtime-invalidated, polling only as a
+ * fallback), submits intents and asks the server to enforce clocks.
  */
 export function useMatch(matchId: string | undefined) {
   const queryClient = useQueryClient();
   const key = queryKeys.match(matchId ?? 'none');
+
+  const realtime = useRealtimeInvalidation(
+    matchId ? `match:${matchId}` : null,
+    matchId ? [{ table: 'matches', filter: `id=eq.${matchId}`, event: 'UPDATE' }] : [],
+    [key],
+  );
 
   const query = useQuery({
     queryKey: key,
@@ -29,14 +35,10 @@ export function useMatch(matchId: string | undefined) {
       return state;
     },
     enabled: !!matchId,
-    refetchInterval: (current) => (current.state.data?.match.status === 'active' ? 10_000 : false),
+    // Slow safety net with realtime, fast polling without it.
+    refetchInterval: (current) =>
+      current.state.data?.match.status === 'active' ? (realtime.connected ? 15_000 : 2000) : false,
   });
-
-  useRealtimeInvalidation(
-    matchId ? `match:${matchId}` : null,
-    matchId ? [{ table: 'matches', filter: `id=eq.${matchId}`, event: 'UPDATE' }] : [],
-    [key],
-  );
 
   const apply = (state: MatchState) => {
     syncServerClock(state.server_time);

@@ -40,29 +40,41 @@ export default function OnboardingScreen() {
   const [displayName, setDisplayName] = useState('');
   const [avatarId, setAvatarId] = useState(DEFAULT_AVATAR_ID);
   const [favorites, setFavorites] = useState<string[]>([]);
-  const [availability, setAvailability] = useState<Availability>({ state: 'idle' });
+  const [checked, setChecked] = useState<{ username: string; result: Availability } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const parsedUsername = usernameSchema.safeParse(username);
+  const candidate = parsedUsername.success ? parsedUsername.data : null;
+  const availability: Availability = !username
+    ? { state: 'idle' }
+    : !parsedUsername.success
+      ? { state: 'error', message: parsedUsername.error.issues[0]?.message ?? '' }
+      : checked?.username === candidate
+        ? checked.result
+        : { state: 'checking' };
+
+  // Debounced server check; only its asynchronous result is stored.
   useEffect(() => {
-    const parsed = usernameSchema.safeParse(username);
-    if (!username) return setAvailability({ state: 'idle' });
-    if (!parsed.success) return setAvailability({ state: 'error', message: parsed.error.issues[0]?.message ?? '' });
-    setAvailability({ state: 'checking' });
+    if (!candidate) return;
     let cancelled = false;
     const timer = setTimeout(() => {
       profileApi
-        .isUsernameAvailable(parsed.data)
+        .isUsernameAvailable(candidate)
         .then((free) => {
-          if (!cancelled) setAvailability(free ? { state: 'available' } : { state: 'error', message: 'Ce pseudo est déjà pris.' });
+          if (!cancelled) {
+            setChecked({ username: candidate, result: free ? { state: 'available' } : { state: 'error', message: 'Ce pseudo est déjà pris.' } });
+          }
         })
-        .catch((error: unknown) => !cancelled && setAvailability({ state: 'error', message: errorMessage(error) }));
+        .catch((error: unknown) => {
+          if (!cancelled) setChecked({ username: candidate, result: { state: 'error', message: errorMessage(error) } });
+        });
     }, 350);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [username]);
+  }, [candidate]);
 
   const createProfile = async () => {
     setSubmitting(true);

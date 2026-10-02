@@ -1,3 +1,7 @@
+import type { MatchState } from '../../matches/api';
+import { resultSummary, statusLine } from './presentation';
+
+// jest.mock is hoisted above the imports by babel-jest.
 jest.mock('@/design-system', () => ({
   colors: {
     violet: 'violet',
@@ -9,8 +13,6 @@ jest.mock('@/design-system', () => ({
   },
 }));
 
-import type { MatchState } from '../../matches/api';
-import { resultSummary, statusLine } from './presentation';
 
 const player = (seat: number, overrides: Partial<MatchState['players'][number]> = {}) => ({
   seat,

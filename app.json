@@ -11,7 +11,9 @@
     "ios": {
       "bundleIdentifier": "app.partyverse.mobile",
       "supportsTablet": false,
-      "config": { "usesNonExemptEncryption": false }
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "app.partyverse.mobile",
@@ -32,7 +34,6 @@
       "expo-router",
       "expo-status-bar",
       "expo-secure-store",
-      "expo-image",
       "expo-font",
       [
         "expo-splash-screen",

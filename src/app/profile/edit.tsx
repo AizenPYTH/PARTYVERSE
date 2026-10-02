@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { PlayerAvatar } from '@/components/PlayerAvatar';
@@ -19,7 +19,7 @@ import {
 } from '@/design-system';
 import { useCurrentUserId } from '@/features/auth/store';
 import { useCatalog } from '@/features/games/catalog';
-import { ownsCosmetic } from '@/features/profile/api';
+import { ownsCosmetic, type Cosmetic, type PlayerProfile } from '@/features/profile/api';
 import { useCosmetics, useInventory, usePlayerProfile, useUpdateProfile } from '@/features/profile/hooks';
 import { errorMessage } from '@/lib/errors';
 
@@ -28,25 +28,7 @@ export default function EditProfileScreen() {
   const profile = usePlayerProfile(userId);
   const cosmetics = useCosmetics();
   const inventory = useInventory();
-  const catalog = useCatalog();
-  const update = useUpdateProfile();
-  const toast = useToast();
-
-  const [displayName, setDisplayName] = useState('');
-  const [bio, setBio] = useState('');
-  const [avatarId, setAvatarId] = useState('');
-  const [titleId, setTitleId] = useState<string | null>(null);
-  const [favorites, setFavorites] = useState<string[]>([]);
   const loaded = profile.data?.profile;
-
-  useEffect(() => {
-    if (!loaded) return;
-    setDisplayName(loaded.display_name);
-    setBio(loaded.bio);
-    setAvatarId(loaded.avatar_id);
-    setTitleId(loaded.title_id);
-    setFavorites(loaded.favorite_games);
-  }, [loaded]);
 
   if (!loaded || !cosmetics.data || !inventory.data) {
     return (
@@ -60,8 +42,28 @@ export default function EditProfileScreen() {
       </Screen>
     );
   }
+  return <EditProfileForm profile={loaded} cosmetics={cosmetics.data} inventory={inventory.data} />;
+}
 
-  const owned = cosmetics.data.filter((item) => ownsCosmetic(item, inventory.data));
+function EditProfileForm({
+  profile,
+  cosmetics,
+  inventory,
+}: {
+  profile: PlayerProfile['profile'];
+  cosmetics: Cosmetic[];
+  inventory: string[];
+}) {
+  const catalog = useCatalog();
+  const update = useUpdateProfile();
+  const toast = useToast();
+  const [displayName, setDisplayName] = useState(profile.display_name);
+  const [bio, setBio] = useState(profile.bio);
+  const [avatarId, setAvatarId] = useState(profile.avatar_id);
+  const [titleId, setTitleId] = useState<string | null>(profile.title_id);
+  const [favorites, setFavorites] = useState<string[]>(profile.favorite_games);
+
+  const owned = cosmetics.filter((item) => ownsCosmetic(item, inventory));
   const avatars = owned.filter((item) => item.kind === 'avatar');
   const titles = owned.filter((item) => item.kind === 'title');
 
@@ -80,7 +82,7 @@ export default function EditProfileScreen() {
     <Screen gap={20} footer={<Button label="Enregistrer" onPress={save} loading={update.isPending} />}>
       <ScreenHeader title="Personnaliser" />
       <View style={styles.preview}>
-        <PlayerAvatar player={{ avatar_id: avatarId, display_name: displayName || loaded.username }} size={96} ring="profile" />
+        <PlayerAvatar player={{ avatar_id: avatarId, display_name: displayName || profile.username }} size={96} ring="profile" />
       </View>
       <TextField label="Nom affiché" value={displayName} onChangeText={setDisplayName} maxLength={32} />
       <TextField label="Bio" value={bio} onChangeText={setBio} maxLength={160} multiline hint={`${bio.length}/160`} />
@@ -96,7 +98,7 @@ export default function EditProfileScreen() {
             onPress={() => setAvatarId(item.id)}
             style={styles.cell}
           >
-            <PlayerAvatar player={{ avatar_id: item.id, display_name: displayName || loaded.username }} size={56} ring={avatarId === item.id ? 'ready' : 'none'} />
+            <PlayerAvatar player={{ avatar_id: item.id, display_name: displayName || profile.username }} size={56} ring={avatarId === item.id ? 'ready' : 'none'} />
           </PressableScale>
         ))}
       </View>

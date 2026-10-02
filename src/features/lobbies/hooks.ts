@@ -8,17 +8,7 @@ import { useCurrentUserId } from '../auth/store';
 import { lobbiesApi, type CreateLobbyInput } from './api';
 
 export function useLobby(lobbyId: string | undefined) {
-  const query = useQuery({
-    queryKey: queryKeys.lobby(lobbyId ?? 'none'),
-    queryFn: async () => {
-      const state = await lobbiesApi.state(lobbyId!);
-      syncServerClock(state.server_time);
-      return state;
-    },
-    enabled: !!lobbyId,
-  });
-
-  useRealtimeInvalidation(
+  const realtime = useRealtimeInvalidation(
     lobbyId ? `lobby:${lobbyId}` : null,
     lobbyId
       ? [
@@ -30,14 +20,26 @@ export function useLobby(lobbyId: string | undefined) {
     lobbyId ? [queryKeys.lobby(lobbyId), queryKeys.lobbyMessages(lobbyId)] : [],
   );
 
-  return query;
+  const query = useQuery({
+    queryKey: queryKeys.lobby(lobbyId ?? 'none'),
+    queryFn: async () => {
+      const state = await lobbiesApi.state(lobbyId!);
+      syncServerClock(state.server_time);
+      return state;
+    },
+    enabled: !!lobbyId,
+    // Polling only while realtime is down.
+    refetchInterval: realtime.connected ? false : 4000,
+  });
+  return { query, realtimeConnected: realtime.connected };
 }
 
-export function useLobbyMessages(lobbyId: string | undefined, enabled: boolean) {
+export function useLobbyMessages(lobbyId: string | undefined, enabled: boolean, poll = false) {
   return useQuery({
     queryKey: queryKeys.lobbyMessages(lobbyId ?? 'none'),
     queryFn: () => lobbiesApi.messages(lobbyId!),
     enabled: !!lobbyId && enabled,
+    refetchInterval: poll ? 4000 : false,
     select: (messages) => [...messages].reverse(),
   });
 }
@@ -48,13 +50,17 @@ export function usePublicLobbies(gameId: string) {
 
 export function useInvitations() {
   const userId = useCurrentUserId();
-  const query = useQuery({ queryKey: queryKeys.invitations, queryFn: lobbiesApi.invitations, enabled: !!userId });
-  useRealtimeInvalidation(
+  const realtime = useRealtimeInvalidation(
     userId ? `invitations:${userId}` : null,
     userId ? [{ table: 'lobby_invitations', filter: `recipient_id=eq.${userId}` }] : [],
     [queryKeys.invitations],
   );
-  return query;
+  return useQuery({
+    queryKey: queryKeys.invitations,
+    queryFn: lobbiesApi.invitations,
+    enabled: !!userId,
+    refetchInterval: realtime.connected ? false : 15_000,
+  });
 }
 
 export function useCreateLobby() {

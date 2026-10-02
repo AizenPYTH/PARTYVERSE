@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Button, ErrorState, IconButton, ListSkeleton, Screen, Sheet, Text, colors, useToast } from '@/design-system';
@@ -12,6 +12,7 @@ import { ProfileView } from '@/features/profile/components/ProfileView';
 import { useHomeOverview, useMatchHistory, usePlayerProfile } from '@/features/profile/hooks';
 import type { ReportReason } from '@/features/social/api';
 import { useFriendRequests, useSocialActions } from '@/features/social/hooks';
+import { confirmAction } from '@/lib/confirm';
 import { errorMessage } from '@/lib/errors';
 
 const REPORT_REASONS: { value: ReportReason; label: string }[] = [
@@ -78,10 +79,9 @@ function RelationshipActions({ data }: { data: PlayerProfile }) {
               variant="secondary"
               style={styles.flex1}
               onPress={() =>
-                Alert.alert('Retirer cet ami ?', undefined, [
-                  { text: 'Annuler', style: 'cancel' },
-                  { text: 'Retirer', style: 'destructive', onPress: () => removeFriend.mutate(userId) },
-                ])
+                void confirmAction({ title: 'Retirer cet ami ?', confirmLabel: 'Retirer', destructive: true }).then(
+                  (confirmed) => confirmed && removeFriend.mutate(userId),
+                )
               }
             />
           </View>
@@ -133,21 +133,22 @@ function MoreSheets({ data, sheet, onSheet }: { data: PlayerProfile; sheet: 'mor
             variant="destructive"
             icon="block"
             onPress={() =>
-              Alert.alert(`Bloquer ${name} ?`, 'Vous ne pourrez plus vous inviter, vous écrire ou jouer dans le même salon.', [
-                { text: 'Annuler', style: 'cancel' },
-                {
-                  text: 'Bloquer',
-                  style: 'destructive',
-                  onPress: () =>
-                    block.mutate(data.profile.id, {
-                      onSuccess: () => {
-                        onSheet(null);
-                        toast.show({ message: `${name} est bloqué`, tone: 'success' });
-                      },
-                      onError: (error) => toast.show({ message: errorMessage(error), tone: 'error' }),
-                    }),
-                },
-              ])
+              void confirmAction({
+                title: `Bloquer ${name} ?`,
+                message: 'Vous ne pourrez plus vous inviter, vous écrire ou jouer dans le même salon.',
+                confirmLabel: 'Bloquer',
+                destructive: true,
+              }).then(
+                (confirmed) =>
+                  confirmed &&
+                  block.mutate(data.profile.id, {
+                    onSuccess: () => {
+                      onSheet(null);
+                      toast.show({ message: `${name} est bloqué`, tone: 'success' });
+                    },
+                    onError: (error) => toast.show({ message: errorMessage(error), tone: 'error' }),
+                  }),
+              )
             }
           />
         ) : null}

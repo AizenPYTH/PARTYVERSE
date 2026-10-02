@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, Share, StyleSheet, View } from 'react-native';
+import { Pressable, Share, StyleSheet, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 import { PlayerAvatar } from '@/components/PlayerAvatar';
@@ -32,6 +32,7 @@ import { useLobby, useLobbyMessages } from '@/features/lobbies/hooks';
 import { describeSetting } from '@/features/lobbies/settings';
 import { messageText } from '@/features/lobbies/systemMessages';
 import { displayNameOf } from '@/features/profile/avatars';
+import { confirmAction } from '@/lib/confirm';
 import { errorMessage } from '@/lib/errors';
 import { queryKeys } from '@/lib/queryClient';
 
@@ -39,7 +40,7 @@ type SheetName = 'menu' | 'invite' | 'chat' | 'member' | null;
 
 export default function LobbyScreen() {
   const { lobbyId } = useLocalSearchParams<{ lobbyId: string }>();
-  const lobby = useLobby(lobbyId);
+  const { query: lobby, realtimeConnected } = useLobby(lobbyId);
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -107,29 +108,28 @@ export default function LobbyScreen() {
     .filter(Boolean)
     .join(' · ');
 
-  const share = () =>
-    room.code
-      ? Share.share({ message: `Rejoins mon salon ${gameName} sur PARTYVERSE : partyverse://join/${room.code} (code ${room.code})` })
-      : undefined;
-
-  const leave = () =>
-    Alert.alert(
-      'Quitter le salon ?',
-      room.status === 'in_progress' && me?.role === 'player' ? 'La partie en cours sera comptée comme abandonnée.' : undefined,
-      [
-        { text: 'Rester', style: 'cancel' },
-        {
-          text: 'Quitter',
-          style: 'destructive',
-          onPress: () =>
-            void act(async () => {
-              await lobbiesApi.leave(room.id);
-              setSheet(null);
-              router.replace('/');
-            }),
-        },
-      ],
+  const share = () => {
+    if (!room.code) return;
+    Share.share({ message: `Rejoins mon salon ${gameName} sur PARTYVERSE : partyverse://join/${room.code} (code ${room.code})` }).catch(() =>
+      toast.show({ message: `Code du salon : ${room.code}`, detail: 'Partage-le à tes amis.' }),
     );
+  };
+
+  const leave = async () => {
+    const confirmed = await confirmAction({
+      title: 'Quitter le salon ?',
+      message: room.status === 'in_progress' && me?.role === 'player' ? 'La partie en cours sera comptée comme abandonnée.' : undefined,
+      confirmLabel: 'Quitter',
+      cancelLabel: 'Rester',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await act(async () => {
+      await lobbiesApi.leave(room.id);
+      setSheet(null);
+      router.replace('/');
+    });
+  };
 
   if (closed || !state.my_role) {
     return (
@@ -232,10 +232,10 @@ export default function LobbyScreen() {
         {room.ranked ? <SettingRow label="Mode" value="Classé" last /> : null}
       </Card>
 
-      <ChatPreview lobbyId={room.id} onOpen={() => setSheet('chat')} />
+      <ChatPreview lobbyId={room.id} poll={!realtimeConnected} onOpen={() => setSheet('chat')} />
 
       <Sheet visible={sheet === 'menu'} onClose={() => setSheet(null)} title="Options du salon">
-        {room.code ? <Button label={`Partager le code ${room.code}`} icon="share" variant="secondary" onPress={() => void share()} /> : null}
+        {room.code ? <Button label={`Partager le code ${room.code}`} icon="share" variant="secondary" onPress={share} /> : null}
         {isHost && room.status !== 'in_progress' ? (
           <Button
             label={room.visibility === 'private' ? 'Rendre public' : 'Rendre privé'}
@@ -256,7 +256,7 @@ export default function LobbyScreen() {
             ))}
           </View>
         ) : null}
-        <Button label="Quitter le salon" variant="destructive" icon="logout" onPress={leave} />
+        <Button label="Quitter le salon" variant="destructive" icon="logout" onPress={() => void leave()} />
       </Sheet>
 
       <Sheet visible={sheet === 'member' && !!selected} onClose={() => setSheet(null)} title={selected ? displayNameOf(selected) : ''}>
@@ -325,8 +325,8 @@ function SettingRow({ label, value, last }: { label: string; value: string; last
   );
 }
 
-function ChatPreview({ lobbyId, onOpen }: { lobbyId: string; onOpen: () => void }) {
-  const messages = useLobbyMessages(lobbyId, true);
+function ChatPreview({ lobbyId, poll, onOpen }: { lobbyId: string; poll: boolean; onOpen: () => void }) {
+  const messages = useLobbyMessages(lobbyId, true, poll);
   const last = [...(messages.data ?? [])].reverse().find((message) => message.kind !== 'system') ?? messages.data?.at(-1);
   return (
     <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir le chat" onPress={onOpen} style={styles.chat}>

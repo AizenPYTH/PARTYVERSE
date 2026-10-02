@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
@@ -15,6 +15,7 @@ import {
   sizes,
   useToast,
 } from '@/design-system';
+import { confirmAction } from '@/lib/confirm';
 import { errorMessage, toAppError } from '@/lib/errors';
 import { formatCountdown } from '@/lib/serverClock';
 
@@ -106,18 +107,18 @@ export function ConnectFourMatch({ state, match }: { state: MatchState; match: R
     router.replace('/');
   };
 
-  const confirmResign = () =>
-    Alert.alert('Abandonner la manche ?', 'Ton adversaire remportera la manche.', [
-      { text: 'Continuer', style: 'cancel' },
-      {
-        text: 'Abandonner',
-        style: 'destructive',
-        onPress: () => {
-          setSheet(null);
-          match.resign.mutate(undefined, { onError: (error) => toast.show({ message: errorMessage(error), tone: 'error' }) });
-        },
-      },
-    ]);
+  const confirmResign = async () => {
+    const confirmed = await confirmAction({
+      title: 'Abandonner la manche ?',
+      message: 'Ton adversaire remportera la manche.',
+      confirmLabel: 'Abandonner',
+      cancelLabel: 'Continuer',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    setSheet(null);
+    match.resign.mutate(undefined, { onError: (error) => toast.show({ message: errorMessage(error), tone: 'error' }) });
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right', 'bottom']}>
@@ -139,7 +140,7 @@ export function ConnectFourMatch({ state, match }: { state: MatchState; match: R
         <PlayerSide player={left} you={mySeat !== null} active={active && state.match.current_turn_seat === left?.seat} align="left" />
         <Text variant="score" accessibilityLabel={`Score ${left?.series_wins ?? 0} à ${right?.series_wins ?? 0}`}>
           {`${left?.series_wins ?? 0}`}
-          <Text variant="score" color={colors.textTertiary}>{' : '}</Text>
+          <Text variant="score" color={colors.textTertiary}>{':'}</Text>
           {`${right?.series_wins ?? 0}`}
         </Text>
         <PlayerSide player={right} you={false} active={active && state.match.current_turn_seat === right?.seat} align="right" />
@@ -205,7 +206,7 @@ export function ConnectFourMatch({ state, match }: { state: MatchState; match: R
       <Sheet visible={sheet === 'menu'} onClose={() => setSheet(null)} title="Partie">
         {lobbyId ? <Button label="Retour au salon" variant="secondary" onPress={() => { setSheet(null); backToLobby(); }} /> : null}
         {active && mySeat !== null ? (
-          <Button label="Abandonner la manche" variant="destructive" loading={match.resign.isPending} onPress={confirmResign} />
+          <Button label="Abandonner la manche" variant="destructive" loading={match.resign.isPending} onPress={() => void confirmResign()} />
         ) : null}
       </Sheet>
 
@@ -240,8 +241,8 @@ function PlayerSide({ player, you, active, align }: { player: MatchPlayer | unde
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.midnight, paddingHorizontal: 20, gap: 18 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6 },
-  players: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  side: { flex: 1, alignItems: 'center', gap: 10, padding: 10, borderRadius: 16 },
+  players: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  side: { flex: 1, alignItems: 'center', gap: 8, padding: 8, borderRadius: 16 },
   sideText: { flex: 1, gap: 2 },
   numeric: { fontVariant: ['tabular-nums'] },
   footer: { flexDirection: 'row', justifyContent: 'space-between' },

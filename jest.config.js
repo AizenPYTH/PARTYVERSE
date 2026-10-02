@@ -13,6 +13,7 @@ module.exports = {
       displayName: 'ui',
       preset: 'jest-expo/ios',
       testMatch: ['<rootDir>/src/**/*.test.tsx'],
+      setupFiles: ['<rootDir>/jest.setup.ui.js'],
       moduleNameMapper,
     },
     {
