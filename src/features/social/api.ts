@@ -59,7 +59,7 @@ export type BlockedUser = z.infer<typeof blockedSchema>;
 
 export type PresenceStatus = 'online' | 'away' | 'dnd' | 'invisible';
 export type ReportReason = 'spam' | 'harassment' | 'hate' | 'cheating' | 'inappropriate_name' | 'other';
-export type ReportContext = 'profile' | 'username' | 'lobby_chat' | 'match';
+export type ReportContext = 'profile' | 'username' | 'lobby_chat' | 'match' | 'direct_message' | 'group_chat';
 
 export const socialApi = {
   friends: () => callRpc('list_friends', {}, z.array(friendSchema)),

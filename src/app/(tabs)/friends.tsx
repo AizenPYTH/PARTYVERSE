@@ -20,6 +20,7 @@ import { useLobbyNavigation } from '@/features/lobbies/useLobbyNavigation';
 import { displayNameOf } from '@/features/profile/avatars';
 import { useHomeOverview } from '@/features/profile/hooks';
 import type { Friend, FriendRequest } from '@/features/social/api';
+import { useUnreadMessages } from '@/features/messages/hooks';
 import { useFriendRequests, useFriends, useSocialActions } from '@/features/social/hooks';
 import { describePresence } from '@/features/social/presence';
 import { errorMessage } from '@/lib/errors';
@@ -33,6 +34,7 @@ export default function FriendsScreen() {
   const catalog = useCatalog();
   const lobbyNav = useLobbyNavigation();
   const [tab, setTab] = useState<Tab>('online');
+  const unread = useUnreadMessages();
 
   const all = friends.data ?? [];
   const online = all.filter((friend) => friend.presence !== 'offline');
@@ -57,6 +59,18 @@ export default function FriendsScreen() {
           Amis
         </Text>
         <Button label="+ Ajouter" variant="secondary" size="M" onPress={() => router.push('/friends/add')} />
+      </View>
+      <View style={styles.shortcuts}>
+        <Button
+          label={unread.data ? `Messages · ${unread.data}` : 'Messages'}
+          variant="secondary"
+          icon="messages"
+          size="M"
+          style={styles.flex}
+          testID="open-messages"
+          onPress={() => router.push('/messages')}
+        />
+        <Button label="Groupes" variant="secondary" icon="friends" size="M" style={styles.flex} testID="open-groups" onPress={() => router.push('/groups')} />
       </View>
       <SegmentedControl
         segments={[
@@ -217,6 +231,7 @@ function RequestsList({
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  shortcuts: { flexDirection: 'row', gap: 10 },
   list: { gap: 18 },
   requestCard: { gap: 14 },
   requestRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },

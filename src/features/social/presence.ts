@@ -32,3 +32,9 @@ export function describePresence(
 }
 
 export const isAvailablePresence = (presence: Presence) => presence !== 'offline';
+
+const PRESENCES: readonly Presence[] = ['online', 'away', 'dnd', 'in_game', 'in_lobby', 'offline'];
+
+/** Server presence string → known presence (unknown values read as offline). */
+export const toPresence = (value: string | null | undefined): Presence =>
+  PRESENCES.includes(value as Presence) ? (value as Presence) : 'offline';

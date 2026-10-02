@@ -6,7 +6,19 @@ import { requireSupabase } from '@/lib/supabase';
 
 export const notificationSchema = z.object({
   id: z.string(),
-  type: z.enum(['friend_request', 'friend_accepted', 'lobby_invite', 'level_up', 'item_unlocked', 'system']),
+  type: z.enum([
+    'friend_request',
+    'friend_accepted',
+    'lobby_invite',
+    'level_up',
+    'item_unlocked',
+    'system',
+    'direct_message',
+    'group_invite',
+    'group_challenge',
+    'achievement',
+    'quest',
+  ]),
   actor_id: z.string().nullable(),
   payload: z.record(z.string(), z.unknown()),
   read_at: z.string().nullable(),

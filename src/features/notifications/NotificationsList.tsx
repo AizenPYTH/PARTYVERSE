@@ -71,6 +71,27 @@ export function NotificationsList() {
         return { text: `Nouvel objet débloqué : ${itemName(item.payload.item_id)}`, onPress: () => router.push('/profile/inventory') };
       case 'system':
         return { text: typeof item.payload.message === 'string' ? item.payload.message : 'Message de PARTYVERSE' };
+      case 'direct_message':
+        return {
+          text: `${actor} t’a envoyé un message`,
+          onPress: item.actor_id ? () => router.push({ pathname: '/messages/[userId]', params: { userId: item.actor_id! } }) : undefined,
+          action: item.actor_id
+            ? { label: 'Lire', onPress: () => router.push({ pathname: '/messages/[userId]', params: { userId: item.actor_id! } }) }
+            : undefined,
+        };
+      case 'group_invite':
+        return { text: `${actor} t’invite dans son groupe`, onPress: openActor, action: { label: 'Voir', onPress: () => router.push('/groups') } };
+      case 'group_challenge': {
+        const groupId = typeof item.payload.group_id === 'string' ? item.payload.group_id : null;
+        return {
+          text: 'Défi de groupe réussi ! +50 XP',
+          onPress: groupId ? () => router.push({ pathname: '/groups/[groupId]', params: { groupId } }) : undefined,
+        };
+      }
+      case 'achievement':
+        return { text: `Succès débloqué : ${typeof item.payload.name === 'string' ? item.payload.name : 'nouveau trophée'}`, onPress: () => router.push('/quests') };
+      case 'quest':
+        return { text: `Quête terminée : ${typeof item.payload.name === 'string' ? item.payload.name : 'récompense disponible'}`, onPress: () => router.push('/quests') };
     }
   };
 
@@ -85,7 +106,7 @@ export function NotificationsList() {
                 <PlayerAvatar player={item.actor} size={44} />
               ) : (
                 <View style={styles.icon}>
-                  <Icon name={item.type === 'level_up' || item.type === 'item_unlocked' ? 'gift' : 'bell'} color={colors.amber} />
+                  <Icon name={['level_up', 'item_unlocked', 'achievement', 'quest', 'group_challenge'].includes(item.type) ? 'gift' : 'bell'} color={colors.amber} />
                 </View>
               )}
               <View style={styles.text}>

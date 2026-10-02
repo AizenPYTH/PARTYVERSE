@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react';
 
 import { TabBar, type TabBarItem } from '@/components/TabBar';
 import { colors } from '@/design-system';
+import { useUnreadMessages } from '@/features/messages/hooks';
 import { useHomeOverview } from '@/features/profile/hooks';
 
 type TabBarRenderProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
@@ -17,8 +18,9 @@ const ITEMS: Record<string, Omit<TabBarItem, 'name' | 'badge'>> = {
 
 function AppTabBar({ state, navigation }: TabBarRenderProps) {
   const overview = useHomeOverview();
+  const unread = useUnreadMessages();
   const badges: Record<string, number | undefined> = {
-    friends: overview.data?.pending_friend_requests,
+    friends: (overview.data?.pending_friend_requests ?? 0) + (unread.data ?? 0),
     activity: overview.data?.unread_notifications,
   };
   const items = state.routes.map((route) => ({

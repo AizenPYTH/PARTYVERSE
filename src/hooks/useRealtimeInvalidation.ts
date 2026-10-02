@@ -34,6 +34,10 @@ export function useRealtimeInvalidation(
     onEventRef.current = onEvent;
   });
   const signature = JSON.stringify(subscriptions);
+  // supabase-js reuses a channel with the same topic: two screens (or a quick
+  // remount, removeChannel being async) would add callbacks to a channel that
+  // is already subscribed, which throws. Each hook instance gets its own topic.
+  const instance = useRef(Math.random().toString(36).slice(2, 10));
 
   useEffect(() => {
     if (!supabase || !channelName) return;
@@ -46,7 +50,7 @@ export function useRealtimeInvalidation(
       }, 120);
     };
 
-    const channel = client.channel(channelName);
+    const channel = client.channel(`${channelName}:${instance.current}`);
     for (const subscription of JSON.parse(signature) as TableSubscription[]) {
       channel.on(
         'postgres_changes',

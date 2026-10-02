@@ -25,6 +25,8 @@ const step = async (name, run) => {
   }
 };
 
+// Stack screens stay mounted on web: only the visible element counts.
+const testId = (page, id) => page.getByTestId(id).filter({ visible: true }).first();
 const button = (page, name) => page.getByRole('button', { name, exact: typeof name === 'string' }).filter({ visible: true }).first();
 // The in-game status line carries the authoritative countdown ("À toi de jouer · 0:58").
 const MY_TURN = /^À toi de jouer · \d+:\d{2}$/;
@@ -292,6 +294,54 @@ async function main() {
     await button(leo.page, 'Menu de la partie').click();
     await button(leo.page, 'Abandonner la manche').click();
     await nova.page.getByText('Victoire', { exact: true }).waitFor({ timeout: 15_000 });
+  });
+
+  await step('private messages: Léo writes to Nova from her profile, Nova reads it', async () => {
+    const { rows } = await db.query('select id from public.profiles where username = $1', [nova.handle]);
+    await leo.page.goto(`${BASE_URL}/player/${rows[0].id}`);
+    await testId(leo.page, 'player-message').click();
+    await testId(leo.page, 'dm-input').fill('Salut Nova, revanche ce soir ?');
+    await testId(leo.page, 'dm-send').click();
+    await leo.page.getByText('Salut Nova, revanche ce soir ?').filter({ visible: true }).first().waitFor({ timeout: 15_000 });
+
+    await nova.page.goto(`${BASE_URL}/friends`);
+    await nova.page.getByTestId('open-messages').filter({ hasText: 'Messages · 1', visible: true }).first().waitFor({ timeout: 20_000 });
+    await testId(nova.page, 'open-messages').click();
+    await button(nova.page, new RegExp(`^${leo.displayName}`)).click();
+    await nova.page.getByText('Salut Nova, revanche ce soir ?').filter({ visible: true }).first().waitFor({ timeout: 15_000 });
+    await shot(nova.page, '15-direct-messages');
+    const unread = await db.query(
+      `select count(*)::int as n from public.direct_messages m join public.conversation_members cm
+          on cm.conversation_id = m.conversation_id and cm.user_id = $1
+        where m.sender_id <> $1 and m.created_at > cm.last_read_at`,
+      [rows[0].id],
+    );
+    if (unread.rows[0].n !== 0) throw new Error('message not marked as read');
+  });
+
+  await step('groups: Nova creates a group, invites Léo, they chat', async () => {
+    await nova.page.goto(`${BASE_URL}/groups`);
+    await testId(nova.page, 'group-create').click();
+    await testId(nova.page, 'group-name').fill(`Comètes ${suffix}`);
+    await testId(nova.page, 'group-create-confirm').click();
+    await nova.page.getByText('Défi de la semaine').filter({ visible: true }).first().waitFor({ timeout: 15_000 });
+    await button(nova.page, 'Inviter').click();
+    const leoId = (await db.query('select id from public.profiles where username = $1', [leo.handle])).rows[0].id;
+    await testId(nova.page, `group-invite-${leoId}`).click();
+    await nova.page.getByText('INVITÉ', { exact: true }).filter({ visible: true }).first().waitFor({ timeout: 15_000 });
+
+    await leo.page.goto(`${BASE_URL}/groups`);
+    const { rows } = await db.query('select id from public.groups where name = $1', [`Comètes ${suffix}`]);
+    await testId(leo.page, `group-accept-${rows[0].id}`).click();
+    await leo.page.getByText('Défi de la semaine').filter({ visible: true }).first().waitFor({ timeout: 15_000 });
+    await testId(leo.page, 'group-chat').click();
+    await testId(leo.page, 'group-chat-input').fill('Présent !');
+    await testId(leo.page, 'group-chat-send').click();
+
+    await nova.page.goto(`${BASE_URL}/groups/${rows[0].id}`);
+    await testId(nova.page, 'group-chat').click();
+    await nova.page.getByText('Présent !').filter({ visible: true }).first().waitFor({ timeout: 20_000 });
+    await shot(nova.page, '16-group-chat');
   });
 
   await step('profile shows server-side stats', async () => {

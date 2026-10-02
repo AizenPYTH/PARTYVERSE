@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import * as Linking from 'expo-linking';
+import { Stack, router, type Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -19,6 +20,7 @@ import { useOnboardingFlow } from '@/features/onboarding/store';
 import { useHomeOverview } from '@/features/profile/hooks';
 import { configState } from '@/lib/env';
 import { errorMessage } from '@/lib/errors';
+import { usePendingLink } from '@/lib/pendingLink';
 import { queryClient } from '@/lib/queryClient';
 
 export { ErrorBoundary } from 'expo-router';
@@ -66,6 +68,20 @@ function RootNavigator() {
   const inApp = signedIn && !passwordRecovery && !needsOnboarding;
   const resolving = status === 'loading' || (signedIn && !passwordRecovery && !overview.data);
 
+  // A link opened while signed out or onboarding (cold start included) is
+  // remembered and opened once the player is in the app.
+  const linkingUrl = Linking.useLinkingURL();
+  useEffect(() => {
+    if (!inApp) usePendingLink.getState().remember(linkingUrl);
+  }, [linkingUrl, inApp]);
+  useEffect(() => {
+    if (!inApp || resolving) return;
+    const path = usePendingLink.getState().take();
+    if (!path) return;
+    const timer = setTimeout(() => router.push(path as Href), 0);
+    return () => clearTimeout(timer);
+  }, [inApp, resolving]);
+
   // The navigator mounts only once auth and profile are known, so the guards
   // never redirect away from the initial URL (cold-start deep links).
   if (resolving) {
@@ -104,6 +120,10 @@ function RootNavigator() {
         <Stack.Screen name="profile/edit" options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="profile/inventory" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="messages/index" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="messages/[userId]" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="groups/index" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="groups/[groupId]" options={{ animation: 'slide_from_right' }} />
       </Stack.Protected>
       <Stack.Screen name="auth/callback" />
     </Stack>

@@ -75,6 +75,14 @@ function RelationshipActions({ data }: { data: PlayerProfile }) {
               onPress={() => void lobbyNav.inviteFriend(userId, myLobby)}
             />
             <Button
+              label="Message"
+              variant="secondary"
+              icon="messages"
+              style={styles.flex1}
+              testID="player-message"
+              onPress={() => router.push({ pathname: '/messages/[userId]', params: { userId } })}
+            />
+            <Button
               label="Retirer"
               variant="secondary"
               style={styles.flex1}
