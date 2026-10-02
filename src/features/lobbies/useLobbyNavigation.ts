@@ -40,6 +40,8 @@ export function useLobbyNavigation() {
       run(`create:${gameId}`, async () =>
         (await lobbiesApi.create({ gameId, visibility: 'private', allowSpectators: true, autoStart: false, settings: {} })).id,
       ),
+    /** Joins the fullest open public room of the game, or opens one. */
+    quickJoin: (gameId: string) => run(`quick:${gameId}`, () => lobbiesApi.quickJoin(gameId)),
     join: (lobbyId: string, asSpectator = false) => run(`join:${lobbyId}`, () => lobbiesApi.join(lobbyId, asSpectator)),
     joinByCode: (code: string) => run(`code:${code}`, () => lobbiesApi.joinByCode(code), 'Code invalide ou salon fermé.'),
     acceptInvitation: (invitationId: string) =>

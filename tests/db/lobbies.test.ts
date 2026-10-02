@@ -245,3 +245,27 @@ describe('changing the game of a room', () => {
     expect(member!.is_ready).toBe(false);
   });
 });
+
+describe('room controls', () => {
+  it('lets the host hand the room over to a player', async () => {
+    const host = await createUser();
+    const guest = await createUser();
+    const lobby = await createLobby(host);
+    await rpc(guest, 'join_lobby_by_code', [lobby.code, false]);
+    await expectError(rpc(guest, 'transfer_lobby_host', [lobby.id, host.id]), 'PV_NOT_LOBBY_HOST');
+    await rpc(host, 'transfer_lobby_host', [lobby.id, guest.id]);
+    const [row] = await admin<{ host_id: string }>('select host_id from public.lobbies where id = $1', [lobby.id]);
+    expect(row!.host_id).toBe(guest.id);
+  });
+
+  it('quick-joins the fullest open public room, else opens one', async () => {
+    const a = await createUser();
+    const b = await createUser();
+    const c = await createUser();
+    const opened = await rpc<string>(a, 'quick_join', ['memory_match']);
+    expect(await rpc<string>(b, 'quick_join', ['memory_match'])).toBe(opened);
+    await rpc(c, 'block_user', [a.id]);
+    expect(await rpc<string>(c, 'quick_join', ['memory_match'])).not.toBe(opened);
+    await expectError(rpc(c, 'quick_join', ['pocket_pool']), 'PV_GAME_UNAVAILABLE');
+  });
+});

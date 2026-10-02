@@ -135,6 +135,9 @@ export const lobbiesApi = {
     callRpc('join_lobby_by_code', { p_code: code, p_as_spectator: asSpectator }, id.nullable()),
   leave: (lobbyId: string) => callRpc('leave_lobby', { p_lobby: lobbyId }, voidResult),
   kick: (lobbyId: string, userId: string) => callRpc('kick_lobby_member', { p_lobby: lobbyId, p_user: userId }, voidResult),
+  transferHost: (lobbyId: string, userId: string) =>
+    callRpc('transfer_lobby_host', { p_lobby: lobbyId, p_user: userId }, voidResult),
+  quickJoin: (gameId: string) => callRpc('quick_join', { p_game_id: gameId }, id),
   setReady: (lobbyId: string, ready: boolean) =>
     callRpc('set_lobby_ready', { p_lobby: lobbyId, p_ready: ready }, lobbyStatusSchema),
   updateSettings: (

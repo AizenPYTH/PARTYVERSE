@@ -92,6 +92,7 @@ export default function GameDetailScreen() {
         {playable ? (
           <View style={styles.actions}>
             <Button label="Créer un salon" onPress={() => setCreateOpen(true)} testID="game-create-lobby" />
+            <QuickJoinButton gameId={game.id} />
             {rankedModes(game).length > 0 ? (
               <View style={styles.ranked}>
                 <Text variant="caption" color={colors.textSecondary}>
@@ -261,3 +262,16 @@ const styles = StyleSheet.create({
   setting: { gap: 8 },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
 });
+
+function QuickJoinButton({ gameId }: { gameId: string }) {
+  const lobbyNav = useLobbyNavigation();
+  return (
+    <Button
+      label="Partie rapide (salon public)"
+      variant="secondary"
+      testID="game-quick-join"
+      loading={lobbyNav.pending === `quick:${gameId}`}
+      onPress={() => void lobbyNav.quickJoin(gameId)}
+    />
+  );
+}

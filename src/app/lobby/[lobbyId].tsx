@@ -374,6 +374,18 @@ export default function LobbyScreen() {
                 router.push({ pathname: '/player/[userId]', params: { userId: selected.user_id } });
               }}
             />
+            {isHost && selected.user_id !== userId && selected.role === 'player' && room.source !== 'matchmaking' ? (
+              <Button
+                label="Nommer hôte"
+                variant="secondary"
+                onPress={() =>
+                  void act(async () => {
+                    await lobbiesApi.transferHost(room.id, selected.user_id);
+                    setSheet(null);
+                  }, `${displayNameOf(selected)} est le nouvel hôte`)
+                }
+              />
+            ) : null}
             {isHost && selected.user_id !== userId ? (
               <Button
                 label="Exclure du salon"
