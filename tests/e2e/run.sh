@@ -13,7 +13,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CACHE="$ROOT/.cache/e2e"
 ARTIFACTS="$ROOT/tests/e2e/artifacts"
 PG_BIN="${PG_BIN:-$(dirname "$(command -v initdb 2>/dev/null || echo /usr/lib/postgresql/16/bin/initdb)")}"
-PG_PORT=54340 AUTH_PORT=54331 REST_PORT=54332 API_PORT=54321 WEB_PORT=8081 GAME_FN_PORT=54333
+PG_PORT=54340 AUTH_PORT=54331 REST_PORT=54332 API_PORT=54321 WEB_PORT=8081 GAME_FN_PORT=54333 PUSH_FN_PORT=54334 EXPO_MOCK_PORT=54335
 POSTGREST_VERSION=v12.2.3 AUTH_VERSION=v2.177.0 DENO_VERSION=v2.5.6
 JWT_SECRET="partyverse-e2e-secret-that-is-at-least-32-chars"
 
@@ -89,15 +89,27 @@ DENO_DIR="$CACHE/deno" "$CACHE/bin/deno" run --quiet --allow-net --allow-env --a
 PIDS+=($!)
 for _ in $(seq 1 150); do curl -sf -X OPTIONS "http://127.0.0.1:$GAME_FN_PORT/" >/dev/null 2>&1 && break; sleep 0.2; done
 
+echo "→ Edge Function push-dispatch (Deno) + local mock of the Expo push API"
+PUSH_LOG="$DATA_DIR/expo-push.jsonl"
+node "$ROOT/tests/e2e/expo-mock.mjs" $EXPO_MOCK_PORT "$PUSH_LOG" &
+PIDS+=($!)
+SUPABASE_URL="http://127.0.0.1:$API_PORT" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_KEY" PORT=$PUSH_FN_PORT \
+PUSH_DISPATCH_SECRET="e2e-dispatch-secret" EXPO_PUSH_URL="http://127.0.0.1:$EXPO_MOCK_PORT/push" \
+DENO_DIR="$CACHE/deno" "$CACHE/bin/deno" run --quiet --allow-net --allow-env --allow-read \
+  --config "$ROOT/supabase/functions/push-dispatch/deno.json" "$ROOT/supabase/functions/push-dispatch/index.ts" >"$DATA_DIR/push-dispatch.log" 2>&1 &
+PIDS+=($!)
+for _ in $(seq 1 150); do curl -s -o /dev/null "http://127.0.0.1:$PUSH_FN_PORT/" && break; sleep 0.2; done
+
 echo "→ Web build"
 WEB_ROOT="$CACHE/web"
 rm -rf "$WEB_ROOT"
 (cd "$ROOT" && EXPO_OFFLINE=1 CI=1 EXPO_PUBLIC_SUPABASE_URL="http://127.0.0.1:$API_PORT" EXPO_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
   npx expo export --platform web --clear --output-dir "$WEB_ROOT" >/dev/null)
 
-node "$ROOT/tests/e2e/gateway.mjs" $API_PORT $AUTH_PORT $REST_PORT $WEB_PORT "$WEB_ROOT" "game-action=$GAME_FN_PORT" &
+node "$ROOT/tests/e2e/gateway.mjs" $API_PORT $AUTH_PORT $REST_PORT $WEB_PORT "$WEB_ROOT" "game-action=$GAME_FN_PORT" "push-dispatch=$PUSH_FN_PORT" &
 PIDS+=($!)
 wait_for "http://127.0.0.1:$WEB_PORT/"
 
 echo "→ Scenarios"
-DATABASE_URL="$DB" BASE_URL="http://127.0.0.1:$WEB_PORT" ARTIFACTS="$ARTIFACTS" node "$ROOT/tests/e2e/flows.mjs"
+DATABASE_URL="$DB" BASE_URL="http://127.0.0.1:$WEB_PORT" ARTIFACTS="$ARTIFACTS" API_URL="http://127.0.0.1:$API_PORT" PUSH_LOG="$PUSH_LOG" \
+  node "$ROOT/tests/e2e/flows.mjs"

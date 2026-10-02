@@ -43,6 +43,13 @@
           "resizeMode": "contain",
           "backgroundColor": "#0B0A14"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#8B5CFF"
+        }
       ]
     ]
   }

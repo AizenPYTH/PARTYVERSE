@@ -1,6 +1,7 @@
 // PARTYVERSE end-to-end scenario, driven through the real web build with two
 // independent browser users. See tests/e2e/run.sh for the stack.
 import { randomUUID } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import pg from 'pg';
 
@@ -320,6 +321,35 @@ async function main() {
       [rows[0].id],
     );
     if (unread.rows[0].n !== 0) throw new Error('message not marked as read');
+  });
+
+  await step('push: a message to an offline device goes through push-dispatch without its body', async () => {
+    const ids = await db.query('select id, username from public.profiles where username = any($1)', [[nova.handle, leo.handle]]);
+    const novaId = ids.rows.find((r) => r.username === nova.handle).id;
+    const leoId = ids.rows.find((r) => r.username === leo.handle).id;
+    const leoToken = `ExponentPushToken[e2e${suffix}leodevice]`;
+    // Simulates Léo's phone having registered (no real device in CI).
+    await db.query(`insert into public.push_tokens (user_id, token, platform, device_name) values ($1, $2, 'android', 'E2E')`, [leoId, leoToken]);
+
+    await nova.page.goto(`${BASE_URL}/messages/${leoId}`);
+    await testId(nova.page, 'dm-input').fill('Le code du salon est 4242');
+    await testId(nova.page, 'dm-send').click();
+    await nova.page.getByText('Le code du salon est 4242').filter({ visible: true }).first().waitFor({ timeout: 15_000 });
+
+    const denied = await fetch(`${process.env.API_URL}/functions/v1/push-dispatch`, { method: 'POST' });
+    if (denied.status !== 401) throw new Error(`dispatch without secret answered ${denied.status}`);
+    const response = await fetch(`${process.env.API_URL}/functions/v1/push-dispatch`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer e2e-dispatch-secret' },
+    });
+    const result = await response.json();
+    if (!response.ok || result.sent < 1) throw new Error(`dispatch failed: ${response.status} ${JSON.stringify(result)}`);
+
+    const log = existsSync(process.env.PUSH_LOG) ? readFileSync(process.env.PUSH_LOG, 'utf8') : '';
+    const pushes = log.trim().split('\n').filter(Boolean).map((line) => JSON.parse(line).message).filter((m) => m.to === leoToken);
+    const dm = pushes.find((m) => m.data?.url === `/messages/${novaId}`);
+    if (!dm || dm.title !== nova.displayName || dm.body !== 'Nouveau message privé.') throw new Error(JSON.stringify(pushes));
+    if (log.includes('4242')) throw new Error('a push leaked the message body');
   });
 
   await step('groups: Nova creates a group, invites Léo, they chat', async () => {

@@ -17,6 +17,8 @@ import {
   useToast,
 } from '@/design-system';
 import { authService } from '@/features/auth/service';
+import { PUSH_STATUS_TEXT } from '@/features/notifications/push';
+import { enablePush, usePushStatus } from '@/features/notifications/usePushNotifications';
 import type { UserSettings } from '@/features/profile/api';
 import { useSettings, useUpdateSettings } from '@/features/profile/hooks';
 import { socialApi, type PresenceStatus } from '@/features/social/api';
@@ -36,6 +38,7 @@ const NOTIFICATION_TYPES: { key: string; label: string }[] = [
 ];
 
 export default function SettingsScreen() {
+  const pushStatus = usePushStatus((state) => state.status);
   const settings = useSettings();
   const update = useUpdateSettings();
   const toast = useToast();
@@ -154,8 +157,42 @@ export default function SettingsScreen() {
               />
             ))}
             <Text variant="caption" color={colors.textTertiary}>
-              Notifications dans l’application. Les notifications push arriveront dans une prochaine version.
+              Notifications dans l’application.
             </Text>
+          </View>
+
+          <View style={styles.section}>
+            <SectionHeader title="Notifications push" />
+            <Text variant="caption" color={colors.textSecondary}>
+              {PUSH_STATUS_TEXT[pushStatus]}
+            </Text>
+            {pushStatus === 'undetermined' ? (
+              <Button
+                label="Activer les notifications push"
+                variant="secondary"
+                icon="bell"
+                onPress={() =>
+                  void enablePush()
+                    .then((status) => toast.show({ message: PUSH_STATUS_TEXT[status], tone: status === 'enabled' ? 'success' : 'info' }))
+                    .catch((error: unknown) => toast.show({ message: errorMessage(error), tone: 'error' }))
+                }
+              />
+            ) : null}
+            {pushStatus === 'enabled'
+              ? NOTIFICATION_TYPES.map((type) => (
+                  <Toggle
+                    key={`push-${type.key}`}
+                    label={type.label}
+                    value={data.push_prefs[type.key] !== false}
+                    onChange={(value) => patch({ push_prefs: { ...data.push_prefs, [type.key]: value } })}
+                  />
+                ))
+              : null}
+            <Toggle
+              label="Rappel le soir si ma série de jours est en jeu"
+              value={data.streak_reminders}
+              onChange={(value) => patch({ streak_reminders: value })}
+            />
           </View>
         </>
       ) : null}

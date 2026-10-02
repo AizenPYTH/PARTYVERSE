@@ -15,6 +15,7 @@ import { ToastProvider, colors, fontAssets } from '@/design-system';
 import { authService } from '@/features/auth/service';
 import { useAuthStore } from '@/features/auth/store';
 import { useAuthBootstrap } from '@/features/auth/useAuthBootstrap';
+import { usePushNotifications } from '@/features/notifications/usePushNotifications';
 import { useSignedInEffects } from '@/features/notifications/useSignedInEffects';
 import { useOnboardingFlow } from '@/features/onboarding/store';
 import { useHomeOverview } from '@/features/profile/hooks';
@@ -67,6 +68,7 @@ function RootNavigator() {
   const needsOnboarding = signedIn && (onboardingFlowActive || overview.data?.profile.onboarding_completed === false);
   const inApp = signedIn && !passwordRecovery && !needsOnboarding;
   const resolving = status === 'loading' || (signedIn && !passwordRecovery && !overview.data);
+  usePushNotifications(signedIn, inApp && !resolving);
 
   // A link opened while signed out or onboarding (cold start included) is
   // remembered and opened once the player is in the app.

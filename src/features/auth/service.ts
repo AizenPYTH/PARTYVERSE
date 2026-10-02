@@ -4,6 +4,7 @@ import { AppError, toAppError } from '@/lib/errors';
 import { queryClient } from '@/lib/queryClient';
 import { requireSupabase } from '@/lib/supabase';
 
+import { unregisterCurrentPushToken } from '../notifications/usePushNotifications';
 import { socialApi } from '../social/api';
 import { parseAuthCallback } from './callback';
 import { useAuthStore } from './store';
@@ -74,6 +75,8 @@ export const authService = {
   },
 
   async signOut() {
+    // The device stops receiving this account's pushes.
+    await unregisterCurrentPushToken();
     await clearPresence();
     await run(() => requireSupabase().auth.signOut({ scope: 'local' }));
     queryClient.clear();

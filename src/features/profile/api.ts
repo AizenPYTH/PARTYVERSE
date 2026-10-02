@@ -108,6 +108,8 @@ export const settingsSchema = z.object({
   allow_join_from_friends: z.boolean(),
   show_presence: z.boolean(),
   notification_prefs: z.record(z.string(), z.boolean()),
+  push_prefs: z.record(z.string(), z.boolean()),
+  streak_reminders: z.boolean(),
 });
 export type UserSettings = z.infer<typeof settingsSchema>;
 export type SettingsPatch = Partial<Omit<UserSettings, 'user_id'>>;
