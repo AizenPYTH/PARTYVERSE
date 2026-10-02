@@ -35,6 +35,7 @@ export const isPlayable = (game: Pick<Game, 'availability' | 'id'>) =>
 export const isEngineGame = (game: Pick<Game, 'network_model'>) => game.network_model === 'turn_based_engine';
 
 export const hasRankedMode = (game: Game) => game.modes.some((mode) => mode.ranked);
+export const rankedModes = (game: Game) => game.modes.filter((mode) => mode.ranked);
 
 export function playersLabel(game: Pick<Game, 'min_players' | 'max_players'>): string {
   return game.min_players === game.max_players ? `${game.min_players}` : `${game.min_players}–${game.max_players}`;

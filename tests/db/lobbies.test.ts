@@ -29,7 +29,7 @@ describe('lobby lifecycle', () => {
 
     await expectError(createLobby(host, { settings: { turn_seconds: 7 } }), 'PV_INVALID_SETTINGS');
     await expectError(createLobby(host, { settings: { cheat: true } }), 'PV_INVALID_SETTINGS');
-    await expectError(rpc(host, 'create_lobby', ['chess_arena']), 'PV_GAME_UNAVAILABLE');
+    await expectError(rpc(host, 'create_lobby', ['pocket_pool']), 'PV_GAME_UNAVAILABLE');
   });
 
   it('joins by code (case-insensitive) and returns null for unknown codes', async () => {

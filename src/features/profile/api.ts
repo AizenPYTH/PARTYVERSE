@@ -155,8 +155,8 @@ export const profileApi = {
   playerProfile: (userId: string) => callRpc('get_player_profile', { p_user: userId }, playerProfileSchema),
   matchHistory: (userId: string | null) =>
     callRpc('list_match_history', { p_user: userId, p_limit: 20 }, z.array(historySchema)),
-  leaderboard: (gameId: string, scope: 'global' | 'friends') =>
-    callRpc('get_leaderboard', { p_game_id: gameId, p_scope: scope, p_mode: 'classic', p_limit: 50 }, z.array(leaderboardSchema)),
+  leaderboard: (gameId: string, scope: 'global' | 'friends', mode = 'classic') =>
+    callRpc('get_leaderboard', { p_game_id: gameId, p_scope: scope, p_mode: mode, p_limit: 50 }, z.array(leaderboardSchema)),
   isUsernameAvailable: (username: string) =>
     callRpc('is_username_available', { p_username: username }, z.boolean()),
   completeOnboarding: (input: { username: string; displayName: string; avatarId: string; favoriteGames: string[] }) =>

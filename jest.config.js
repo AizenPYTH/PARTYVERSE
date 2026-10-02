@@ -4,6 +4,8 @@ const moduleNameMapper = {
   '^@engines/(.*)$': '<rootDir>/supabase/functions/_shared/engines/$1',
 };
 
+const modulePathIgnorePatterns = ['<rootDir>/.cache'];
+
 module.exports = {
   projects: [
     {
@@ -11,6 +13,7 @@ module.exports = {
       preset: 'jest-expo/node',
       testMatch: ['<rootDir>/src/**/*.test.ts', '<rootDir>/supabase/functions/**/*.test.ts'],
       moduleNameMapper,
+      modulePathIgnorePatterns,
     },
     {
       displayName: 'ui',
@@ -18,6 +21,7 @@ module.exports = {
       testMatch: ['<rootDir>/src/**/*.test.tsx'],
       setupFiles: ['<rootDir>/jest.setup.ui.js'],
       moduleNameMapper,
+      modulePathIgnorePatterns,
     },
     {
       // Requires a database prepared by scripts/db-test.sh (npm run test:db).
@@ -25,6 +29,7 @@ module.exports = {
       preset: 'jest-expo/node',
       testMatch: ['<rootDir>/tests/db/**/*.test.ts'],
       moduleNameMapper,
+      modulePathIgnorePatterns,
     },
   ],
 };

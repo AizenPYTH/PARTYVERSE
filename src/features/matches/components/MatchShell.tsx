@@ -32,6 +32,8 @@ export interface MatchShellProps {
   /** Game-specific result reasons (checkmate…). */
   reasons?: Record<string, string>;
   footer?: ReactNode;
+  /** Games that draw their own player bars (chess clocks) hide the default header. */
+  hideHeader?: boolean;
   children: ReactNode;
 }
 
@@ -53,6 +55,7 @@ export function MatchShell({
   scoreOf,
   reasons,
   footer,
+  hideHeader = false,
   children,
 }: MatchShellProps) {
   const toast = useToast();
@@ -128,7 +131,7 @@ export function MatchShell({
         <IconButton icon="messages" size={sizes.iconButtonGame} accessibilityLabel="Chat" disabled={!lobbyId} onPress={() => setSheet('chat')} />
       </View>
 
-      {duel ? (
+      {hideHeader ? null : duel ? (
         <DuelHeader state={state} activeSeats={active ? activeSeats : []} seatLabel={seatLabel} scoreOf={scoreOf} />
       ) : (
         <PlayersStrip state={state} activeSeats={active ? activeSeats : []} scoreOf={scoreOf} />

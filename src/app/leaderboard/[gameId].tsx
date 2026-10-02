@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { PlayerAvatar } from '@/components/PlayerAvatar';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyState, ErrorState, ListSkeleton, PressableScale, Screen, SegmentedControl, Text, colors } from '@/design-system';
-import { useGame } from '@/features/games/catalog';
+import { rankedModes, useGame } from '@/features/games/catalog';
 import { displayNameOf } from '@/features/profile/avatars';
 import { useLeaderboard } from '@/features/profile/hooks';
 import { errorMessage } from '@/lib/errors';
@@ -14,7 +14,10 @@ export default function LeaderboardScreen() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
   const { game } = useGame(gameId);
   const [scope, setScope] = useState<'global' | 'friends'>('global');
-  const board = useLeaderboard(gameId, scope);
+  const modes = game ? rankedModes(game) : [];
+  const [mode, setMode] = useState<string | null>(null);
+  const activeMode = mode ?? modes[0]?.id ?? 'classic';
+  const board = useLeaderboard(gameId, scope, activeMode);
 
   return (
     <Screen gap={18} refreshing={board.isRefetching} onRefresh={() => void board.refetch()}>
@@ -27,6 +30,9 @@ export default function LeaderboardScreen() {
         value={scope}
         onChange={setScope}
       />
+      {modes.length > 1 ? (
+        <SegmentedControl segments={modes.map((item) => ({ value: item.id, label: item.name }))} value={activeMode} onChange={setMode} />
+      ) : null}
       {board.isPending ? <ListSkeleton rows={5} /> : null}
       {board.error ? <ErrorState message={errorMessage(board.error)} onRetry={() => void board.refetch()} /> : null}
       {board.data?.length === 0 ? (

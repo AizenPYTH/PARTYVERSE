@@ -86,7 +86,7 @@ describe('ranked matchmaking', () => {
     expect((await rpc<Ticket>(a, 'poll_matchmaking')).status).toBe('expired');
 
     await expectError(rpc(a, 'enqueue_matchmaking', ['connect_four', 'blitz']), 'PV_RANKED_UNAVAILABLE');
-    await expectError(rpc(a, 'enqueue_matchmaking', ['chess_arena', 'classic']), 'PV_GAME_UNAVAILABLE');
+    await expectError(rpc(a, 'enqueue_matchmaking', ['pocket_pool', 'eight_ball']), 'PV_GAME_UNAVAILABLE');
   });
 });
 

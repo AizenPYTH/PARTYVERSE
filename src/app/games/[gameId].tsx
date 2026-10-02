@@ -18,7 +18,7 @@ import {
   colors,
   tint,
 } from '@/design-system';
-import { hasRankedMode, isPlayable, playersLabel, useGame, type Game } from '@/features/games/catalog';
+import { hasRankedMode, isPlayable, playersLabel, rankedModes, useGame, type Game } from '@/features/games/catalog';
 import { GameEmblem } from '@/features/games/components/GameEmblem';
 import { gameVisual } from '@/features/games/registry';
 import { useCreateLobby, usePublicLobbies } from '@/features/lobbies/hooks';
@@ -68,13 +68,26 @@ export default function GameDetailScreen() {
         {playable ? (
           <View style={styles.actions}>
             <Button label="Créer un salon" onPress={() => setCreateOpen(true)} testID="game-create-lobby" />
-            {hasRankedMode(game) ? (
-              <Button
-                label="Partie classée"
-                variant="secondary"
-                icon="bolt"
-                onPress={() => router.push({ pathname: '/matchmaking/[gameId]', params: { gameId: game.id } })}
-              />
+            {rankedModes(game).length > 0 ? (
+              <View style={styles.ranked}>
+                <Text variant="caption" color={colors.textSecondary}>
+                  Partie classée
+                </Text>
+                <View style={styles.row}>
+                  {rankedModes(game).map((mode) => (
+                    <Button
+                      key={mode.id}
+                      label={rankedModes(game).length > 1 ? mode.name : 'Partie classée'}
+                      variant="secondary"
+                      icon="bolt"
+                      size="M"
+                      style={styles.flex}
+                      testID={`ranked-${mode.id}`}
+                      onPress={() => router.push({ pathname: '/matchmaking/[gameId]', params: { gameId: game.id, mode: mode.id } })}
+                    />
+                  ))}
+                </View>
+              </View>
             ) : null}
             <View style={styles.row}>
               <Button label="Rejoindre avec un code" variant="secondary" size="M" style={styles.flex} onPress={() => router.push('/lobby/join')} />
@@ -219,6 +232,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 10 },
   flex: { flex: 1 },
   section: { gap: 12, marginTop: 12 },
+  ranked: { gap: 8 },
   lobbyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
   setting: { gap: 8 },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },

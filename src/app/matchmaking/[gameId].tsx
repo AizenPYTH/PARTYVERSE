@@ -13,7 +13,7 @@ const POLL_MS = 2000;
 
 /** Ranked queue: every poll lets the server try a pairing (no worker needed). */
 export default function MatchmakingScreen() {
-  const { gameId } = useLocalSearchParams<{ gameId: string }>();
+  const { gameId, mode = 'classic' } = useLocalSearchParams<{ gameId: string; mode?: string }>();
   const { game } = useGame(gameId);
   const [ticket, setTicket] = useState<MatchmakingTicket | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,14 +35,14 @@ export default function MatchmakingScreen() {
   useEffect(() => {
     finished.current = false;
     matchmakingApi
-      .enqueue(gameId)
+      .enqueue(gameId, mode)
       .then(handle)
       .catch((reason: unknown) => setError(errorMessage(reason)));
     return () => {
       // Leaving the screen while searching cancels the ticket.
       if (!finished.current) void matchmakingApi.cancel().catch(() => undefined);
     };
-  }, [gameId]);
+  }, [gameId, mode]);
 
   useInterval(
     () => {
@@ -59,7 +59,7 @@ export default function MatchmakingScreen() {
     <Screen edges={['top', 'left', 'right', 'bottom']} scroll={false} gap={24} contentStyle={styles.content}>
       <GameEmblem gameId={gameId} height={140} width={140} radius={28} scale={1} />
       <Text variant="title" align="center">
-        {game ? `${game.name} · classé` : 'Partie classée'}
+        {game ? `${game.name} · ${game.modes.find((m) => m.id === mode)?.name ?? 'classé'}` : 'Partie classée'}
       </Text>
       {error ? <ErrorState message={error} /> : null}
       {!error && (searching || !ticket) ? (
@@ -87,7 +87,7 @@ export default function MatchmakingScreen() {
             onPress={() => {
               setError(null);
               matchmakingApi
-                .enqueue(gameId)
+                .enqueue(gameId, mode)
                 .then(handle)
                 .catch((reason: unknown) => setError(errorMessage(reason)));
             }}

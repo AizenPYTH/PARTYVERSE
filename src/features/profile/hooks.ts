@@ -25,8 +25,8 @@ export function useMatchHistory(userId: string | null | undefined, enabled = tru
   });
 }
 
-export function useLeaderboard(gameId: string, scope: 'global' | 'friends') {
-  return useQuery({ queryKey: queryKeys.leaderboard(gameId, scope), queryFn: () => profileApi.leaderboard(gameId, scope) });
+export function useLeaderboard(gameId: string, scope: 'global' | 'friends', mode = 'classic') {
+  return useQuery({ queryKey: queryKeys.leaderboard(gameId, `${scope}:${mode}`), queryFn: () => profileApi.leaderboard(gameId, scope, mode) });
 }
 
 export function useSettings() {
