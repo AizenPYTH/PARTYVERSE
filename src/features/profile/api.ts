@@ -104,6 +104,7 @@ export const settingsSchema = z.object({
   profile_visibility: z.enum(['public', 'friends']),
   friend_requests_from: z.enum(['everyone', 'friends_of_friends', 'nobody']),
   invites_from: z.enum(['friends', 'nobody']),
+  messages_from: z.enum(['everyone', 'friends', 'nobody']),
   allow_join_from_friends: z.boolean(),
   show_presence: z.boolean(),
   notification_prefs: z.record(z.string(), z.boolean()),

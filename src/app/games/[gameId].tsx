@@ -24,12 +24,18 @@ import { gameVisual } from '@/features/games/registry';
 import { useCreateLobby, usePublicLobbies } from '@/features/lobbies/hooks';
 import { gameSettings } from '@/features/lobbies/settings';
 import { useLobbyNavigation } from '@/features/lobbies/useLobbyNavigation';
+import { useCurrentUserId } from '@/features/auth/store';
+import { toggleFavorite } from '@/features/games/favorites';
+import { usePlayerProfile, useUpdateProfile } from '@/features/profile/hooks';
 import { errorMessage } from '@/lib/errors';
 
 export default function GameDetailScreen() {
   const { gameId } = useLocalSearchParams<{ gameId: string }>();
   const { game, isPending, error, refetch } = useGame(gameId);
   const [createOpen, setCreateOpen] = useState(false);
+  const me = usePlayerProfile(useCurrentUserId());
+  const updateProfile = useUpdateProfile();
+  const favorites = me.data?.profile.favorite_games ?? [];
 
   if (isPending) {
     return (
@@ -52,7 +58,25 @@ export default function GameDetailScreen() {
     <ScrollView style={styles.root} showsVerticalScrollIndicator={false}>
       <View style={[styles.banner, { backgroundColor: tint(gameVisual(game.id).hue).deep }]}>
         <View style={styles.padded}>
-          <ScreenHeader title="" />
+          <ScreenHeader
+            title=""
+            right={
+              me.data ? (
+                <Button
+                  label={favorites.includes(game.id) ? '★ Favori' : '☆ Favori'}
+                  size="S"
+                  variant={favorites.includes(game.id) ? 'primary' : 'secondary'}
+                  accessibilityLabel={favorites.includes(game.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                  loading={updateProfile.isPending}
+                  disabled={!favorites.includes(game.id) && favorites.length >= 10}
+                  onPress={() => {
+                    const next = toggleFavorite(favorites, game.id);
+                    if (next) updateProfile.mutate({ favorite_games: next });
+                  }}
+                />
+              ) : undefined
+            }
+          />
         </View>
         <GameEmblem gameId={game.id} height={150} radius={24} style={styles.bannerArt} />
       </View>

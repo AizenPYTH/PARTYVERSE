@@ -29,6 +29,9 @@ const NOTIFICATION_TYPES: { key: string; label: string }[] = [
   { key: 'lobby_invite', label: 'Invitations à jouer' },
   { key: 'friend_request', label: 'Demandes d’ami' },
   { key: 'friend_accepted', label: 'Demandes acceptées' },
+  { key: 'direct_message', label: 'Messages privés' },
+  { key: 'group_invite', label: 'Invitations de groupe' },
+  { key: 'group_challenge', label: 'Défis de groupe' },
   { key: 'level_up', label: 'Niveaux et récompenses' },
 ];
 
@@ -119,6 +122,17 @@ export default function SettingsScreen() {
                 ]}
                 value={data.invites_from}
                 onChange={(value) => patch({ invites_from: value })}
+              />
+            </Option>
+            <Option label="Messages privés">
+              <SegmentedControl
+                segments={[
+                  { value: 'everyone', label: 'Tous' },
+                  { value: 'friends', label: 'Mes amis' },
+                  { value: 'nobody', label: 'Personne' },
+                ]}
+                value={data.messages_from}
+                onChange={(value) => patch({ messages_from: value })}
               />
             </Option>
             <Toggle
