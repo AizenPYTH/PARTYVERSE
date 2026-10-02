@@ -1,0 +1,55 @@
+{
+  "description": "Shared Connect Four conformance vectors. Moves are column indexes played alternately by seat 0 then seat 1. Checked against both the TypeScript engine (src/features/games/connect-four/engine.test.ts) and the SQL engine (tests/db/connect-four.test.ts).",
+  "vectors": [
+    {
+      "name": "horizontal win on the bottom row",
+      "moves": [0, 0, 1, 1, 2, 2, 3],
+      "expected": { "outcome": "win", "winner": 0, "cells": [[0, 0], [1, 0], [2, 0], [3, 0]] }
+    },
+    {
+      "name": "vertical win",
+      "moves": [0, 1, 0, 1, 0, 1, 0],
+      "expected": { "outcome": "win", "winner": 0, "cells": [[0, 0], [0, 1], [0, 2], [0, 3]] }
+    },
+    {
+      "name": "rising diagonal win",
+      "moves": [0, 1, 1, 2, 2, 3, 2, 3, 3, 6, 3],
+      "expected": { "outcome": "win", "winner": 0, "cells": [[0, 0], [1, 1], [2, 2], [3, 3]] }
+    },
+    {
+      "name": "falling diagonal win",
+      "moves": [6, 5, 5, 4, 4, 3, 4, 3, 3, 0, 3],
+      "expected": { "outcome": "win", "winner": 0, "cells": [[6, 0], [5, 1], [4, 2], [3, 3]] }
+    },
+    {
+      "name": "second player wins",
+      "moves": [0, 1, 0, 1, 6, 1, 0, 1],
+      "expected": { "outcome": "win", "winner": 1, "cells": [[1, 0], [1, 1], [1, 2], [1, 3]] }
+    },
+    {
+      "name": "filling a gap makes a line of five",
+      "moves": [0, 0, 1, 1, 3, 3, 4, 6, 2],
+      "expected": { "outcome": "win", "winner": 0, "cells": [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]] }
+    },
+    {
+      "name": "full board without a line is a draw",
+      "moves": [4, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5, 0, 0, 0, 0, 0, 6, 6, 6, 6, 6, 6, 0],
+      "expected": { "outcome": "draw" }
+    },
+    {
+      "name": "dropping into a full column is rejected",
+      "moves": [0, 0, 0, 0, 0, 0, 0],
+      "expected": { "outcome": "error", "error": "PV_COLUMN_FULL", "atMove": 6 }
+    },
+    {
+      "name": "column out of range is rejected",
+      "moves": [7],
+      "expected": { "outcome": "error", "error": "PV_INVALID_MOVE", "atMove": 0 }
+    },
+    {
+      "name": "game in progress",
+      "moves": [3, 3, 4],
+      "expected": { "outcome": "continue" }
+    }
+  ]
+}
