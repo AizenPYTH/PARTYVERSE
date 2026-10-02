@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 
 import type { MatchState } from '../matches/api';
 import type { MatchController } from '../matches/useMatch';
+import { BattleshipMatch } from './battleship/BattleshipMatch';
 import { CheckersMatch } from './checkers/CheckersMatch';
 import { ChessMatch } from './chess/ChessMatch';
 import { ConnectFourMatch } from './connect-four/ConnectFourMatch';
@@ -17,4 +18,5 @@ export const MATCH_RENDERERS: Record<string, MatchRenderer> = {
   chess_arena: ChessMatch,
   reversi: ReversiMatch,
   checkers: CheckersMatch,
+  battleship: BattleshipMatch,
 };

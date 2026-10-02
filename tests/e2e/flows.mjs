@@ -224,6 +224,47 @@ async function main() {
     if (rows[0]?.outcome !== 'win' || rows[0]?.reason !== 'line') throw new Error(JSON.stringify(rows));
   });
 
+  await step('Battleship: secret simultaneous placement, then shots validated by the engine', async () => {
+    await button(nova.page, 'Revanche').click();
+    await button(leo.page, 'Revanche').click();
+    await button(nova.page, 'Options du salon').click();
+    await button(nova.page, 'Changer de jeu').click();
+    await nova.page.getByRole('radio', { name: 'Bataille navale' }).click();
+    await nova.page.getByText(/Nouveau jeu : Bataille navale/).waitFor({ timeout: 15_000 });
+    for (const player of [nova, leo]) {
+      await player.page.getByTestId('lobby-ready').waitFor({ timeout: 15_000 });
+      await player.page.getByTestId('lobby-ready').click();
+    }
+    await nova.page.getByTestId('lobby-start').waitFor({ timeout: 15_000 });
+    await nova.page.getByTestId('lobby-start').click();
+    for (const player of [nova, leo]) {
+      await player.page.getByText('Place ta flotte').waitFor({ timeout: 15_000 });
+    }
+    await shot(nova.page, '12-battleship-placement');
+    await nova.page.getByTestId('bs-confirm').click();
+    await leo.page.getByText(/place sa flotte|Place ta flotte/).waitFor({ timeout: 15_000 });
+    await leo.page.getByTestId('bs-confirm').click();
+
+    const [shooter, target] = await playerOnTurn(nova, leo);
+    await shooter.page.getByText(MY_TURN).waitFor({ timeout: 15_000 });
+    await shooter.page.getByTestId('bs-fire-0').click();
+    await target.page.getByText(MY_TURN).waitFor({ timeout: 15_000 });
+    await shot(target.page, '13-battleship-battle');
+
+    const { rows } = await db.query(
+      `select m.state::text as public_state,
+              (select string_agg(mv.action::text, ' ') from public.match_moves mv where mv.match_id = m.id) as moves
+         from public.matches m where m.game_id = 'battleship' order by m.started_at desc limit 1`,
+    );
+    const row = rows[0];
+    if (!row || row.public_state.includes('"cells"') || row.moves.includes('carrier')) {
+      throw new Error(`fleet leaked: ${JSON.stringify(row)}`);
+    }
+    await button(target.page, 'Menu de la partie').click();
+    await button(target.page, 'Abandonner la manche').click();
+    await shooter.page.getByText('Victoire', { exact: true }).waitFor({ timeout: 15_000 });
+  });
+
   await step('profile shows server-side stats', async () => {
     await first.page.goto(`${BASE_URL}/profile`);
     await first.page.getByText('Parties', { exact: true }).waitFor({ timeout: 15_000 });

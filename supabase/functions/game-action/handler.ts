@@ -161,8 +161,9 @@ async function act(db: GameDatabase, userId: string, request: Extract<GameReques
   const result = engine.apply(loaded.server_state, loaded.seat, action, contextOf(loaded, loaded.server_state));
   if (isEngineError(result)) throw new GameActionError(result.error);
 
+  const logged = engine.redactAction ? engine.redactAction(action) : action;
   const version = await db.commit(
-    request.matchId, userId, loaded.version, 'action', action, serializeTransition(engine, result, loaded.seats));
+    request.matchId, userId, loaded.version, 'action', logged, serializeTransition(engine, result, loaded.seats));
   return { version };
 }
 

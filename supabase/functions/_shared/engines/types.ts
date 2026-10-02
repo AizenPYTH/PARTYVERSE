@@ -79,6 +79,12 @@ export interface GameEngine<S, A> {
   publicView(state: S): unknown;
   /** What only `seat` may see, or null. */
   privateView(state: S, seat: Seat): unknown;
+  /**
+   * What of an action may be written to the move log, which every participant
+   * can read. Games with secret actions (fleet placement, answers, votes)
+   * must redact them; the full state stays server-side.
+   */
+  redactAction?(action: A): unknown;
 }
 
 export const isEngineError = (value: unknown): value is EngineError =>

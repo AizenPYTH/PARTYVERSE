@@ -70,4 +70,5 @@ export const SUPPORTED_GAMES: ReadonlySet<string> = new Set([
   'chess_arena',
   'reversi',
   'checkers',
+  'battleship',
 ]);

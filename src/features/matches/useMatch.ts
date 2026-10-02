@@ -67,9 +67,26 @@ export function useMatch(matchId: string | undefined) {
     },
   });
 
-  /** Generic engine action (every game except the SQL Connect Four). */
+  /**
+   * Generic engine action (every game except the SQL Connect Four).
+   * In simultaneous phases (fleet placement, answers, votes) another player's
+   * action bumps the version first: on a stale version the intent is resent
+   * once against the fresh state if this seat may still act. The engine
+   * re-validates it against that state.
+   */
   const action = useMutation({
-    mutationFn: ({ payload, version }: { payload: unknown; version: number }) => engineApi.action(matchId!, version, payload),
+    mutationFn: async ({ payload, version }: { payload: unknown; version: number }) => {
+      try {
+        return await engineApi.action(matchId!, version, payload);
+      } catch (error) {
+        if (toAppError(error).code !== 'PV_STALE_STATE') throw error;
+        const fresh = (await query.refetch()).data;
+        const seat = fresh?.my_seat ?? null;
+        if (!fresh || fresh.match.status !== 'active' || seat === null || !(fresh.match.active_seats ?? []).includes(seat)) throw error;
+        if (fresh.match.version === version) throw error;
+        return engineApi.action(matchId!, fresh.match.version, payload);
+      }
+    },
     onSettled: () => refetch(),
     onError: (error) => {
       if (toAppError(error).code === 'PV_TURN_EXPIRED') claimTimeout.mutate();

@@ -46,6 +46,7 @@ export const errorMessages = {
   PV_NOT_YOUR_TURN: 'Ce n’est pas ton tour.',
   PV_STALE_STATE: 'La partie a changé, mise à jour…',
   PV_INVALID_MOVE: 'Coup invalide.',
+  PV_ALREADY_DONE: 'C’est déjà fait pour cette étape.',
   PV_COLUMN_FULL: 'Cette colonne est pleine.',
   PV_TURN_EXPIRED: 'Temps écoulé pour ce tour.',
   PV_TURN_NOT_EXPIRED: 'Le temps n’est pas encore écoulé.',

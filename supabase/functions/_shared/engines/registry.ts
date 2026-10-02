@@ -1,3 +1,4 @@
+import { battleship } from './battleship.ts';
 import { checkers } from './checkers.ts';
 import { chess } from './chess.ts';
 import { reversi } from './reversi.ts';
@@ -11,6 +12,7 @@ export const ENGINES: Record<string, GameEngine<any, any>> = {
   [chess.id]: chess,
   [reversi.id]: reversi,
   [checkers.id]: checkers,
+  [battleship.id]: battleship,
 };
 
 // deno-lint-ignore no-explicit-any
