@@ -9,7 +9,7 @@ Expo changes between SDKs: check the installed package versions and their typing
 npx expo install <pkg>     # SDK-compatible versions (use EXPO_OFFLINE=1 if api.expo.dev is unreachable)
 npm run typecheck && npm run lint && npm test   # = npm run check
 npm run test:db            # SQL integration tests (needs PostgreSQL 16 binaries)
-npm run test:e2e           # full-stack web E2E (see docs/testing.md)
+npm run test:e2e           # full-stack web E2E, 3 browsers (see docs/testing.md)
 ```
 
 Run `check` and `test:db` before every commit that touches the corresponding layer.
@@ -27,8 +27,12 @@ Run `check` and `test:db` before every commit that touches the corresponding lay
 - No fake data, no decorative buttons, no "coming soon" game that pretends to work.
 - UI copy is French. Colors, type and spacing come from `src/design-system` only.
 - Keep business logic out of `src/app` screens; pure logic gets a `*.test.ts`.
-- New game: catalog row + engine (SQL or server) + `src/features/games/<id>` renderer
-  + case in `src/app/match/[matchId].tsx` + shared test vectors.
+- New game: catalog row + engine (`supabase/functions/_shared/engines/<id>.ts` registered in
+  `registry.ts`, or SQL) + `src/features/games/<id>` renderer exporting `stateSchema`, listed in
+  `MATCH_RENDERERS` and `SUPPORTED_GAMES` + engine unit tests + DB tests through `tests/db/engineDb.ts`.
+  Secrets go in server/private state only; redact secret actions (`redactAction`).
+  See docs/architecture/games.md.
+- Edge Functions are type-checked with Deno: `deno check --config supabase/functions/<fn>/deno.json`.
 
 ## Map
 

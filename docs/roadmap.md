@@ -3,35 +3,37 @@
 | Phase | État | Détail |
 | --- | --- | --- |
 | A — Audit et fondations | ✅ | Expo 57, TS strict, design system, navigation, Supabase, migrations, docs |
-| B — Comptes et social | ✅ (sauf push) | Auth complète, onboarding, profils, amis, présence, notifications in-app |
-| C — Salons et communication | ✅ (partiel) | Salons, invitations, chat de salon, gestion des membres, reconnexion. **Manque** : messagerie privée, groupes permanents |
-| D — Premiers jeux | 🟡 1/4 | Connect Four ✅ (amical + classé). Échecs, Quiz Rush, Impostor à faire |
-| E — Progression | 🟡 | XP, niveaux, cosmétiques, classements ✅. **Manque** : succès/trophées, quêtes |
-| F — Party | ⬜ | Orchestrateur de manches |
-| G — Temps réel | ⬜ | Serveur Colyseus, Draw & Guess, billard, mini-golf, course |
-| H — Tournois et communauté | ⬜ | Tournois, groupes, événements, espace d'administration |
-| I — Stabilisation | ⬜ | Tests de charge, audit sécurité externe, accessibilité, distribution |
-
-## Prochaine étape recommandée
-
-1. **Brancher un vrai projet Supabase** (docs/setup.md) et valider sur iOS/Android
-   physiques (haptique, liens profonds, SecureStore) avec un development build.
-2. **Chess Arena** : Edge Function avec chess.js, pendule autoritaire par joueur,
-   Blitz/Bullet/Chess960, Elo dédié — en réutilisant `matches`, `finalize_match`,
-   le matchmaking et l'écran de salon.
-3. **Notifications push** : table `push_tokens` (appareils multiples, jetons expirés),
-   Edge Function d'envoi respectant `notification_prefs`, demande de permission au
-   premier besoin réel (invitation reçue).
-4. **Messagerie privée** (conversations, pagination, lecture, réactions) et
-   **groupes permanents** (rôles propriétaire/admin/membre).
+| B — Jeux | ✅ 10 jeux | Connect Four, Morpion, Chess Arena, Reversi, Dames, Bataille navale, Quiz Rush, Calcul Express, Impostor, Memory — moteurs serveur, tests, rendus |
+| C — Social | ✅ | profils, amis, présence, blocage/signalement, messages privés, groupes (rôles, chat, classement, activité, défis), liens profonds rejoués |
+| D — Progression | ✅ | XP/niveaux, cosmétiques, Elo par jeu et mode, succès, quêtes quotidiennes/hebdomadaires, série de jours, classements XP |
+| E — Party | ✅ | formats, manches enchaînées, classement général, reprise d'une manche annulée |
+| F — Push | ✅ (non testé sur appareil) | jetons Expo, file serveur, préférences, rappels, ouverture au bon écran |
+| G — Temps réel | ⬜ | serveur dédié (Colyseus) : Draw & Guess, Pocket Pool, Mini Golf, Micro Racers, Bomb Squad, Mindlink |
+| H — Tournois et administration | ⬜ | tournois, événements, interface de modération et de catalogue |
+| I — Stabilisation | ⬜ | tests sur appareils, charge, audit sécurité externe, accessibilité, distribution |
 
 ## Limites connues
 
-- Notifications push non implémentées (in-app uniquement).
-- Lien profond ouvert en étant déconnecté : après connexion, l'utilisateur arrive à
-  l'accueil (le lien n'est pas encore rejoué).
-- Matchmaking sans confirmation de présence avant le début (le chrono de tour gère l'absence).
-- Pas de compte à rebours 3-2-1 au démarrage d'une partie.
-- Modération et catalogue administrés en SQL (pas encore d'interface d'administration).
-- Les captures et l'E2E tournent sur la cible web ; iOS/Android sont vérifiés par
-  compilation des bundles (Hermes) mais pas encore sur appareil.
+- **Aucun test sur téléphone réel** n'a été effectué : iOS/Android sont vérifiés par la
+  compilation des bundles Hermes ; l'E2E tourne sur la cible web avec trois comptes.
+  Les push ont été vérifiées jusqu'à l'API Expo (imitation locale), pas jusqu'à un appareil.
+- Push : nécessitent un development build et un projet EAS (APNs/FCM). Les reçus Expo
+  (« receipts ») ne sont pas encore relevés : un jeton mort est détecté au ticket.
+- Six jeux restent « Bientôt disponible » (moteurs temps réel non écrits) ; ils ne sont
+  jamais proposés comme jouables.
+- Party Challenge du cahier des charges : couvert par le mode Party (enchaînement de jeux
+  avec classement) ; pas de mini-défis dédiés.
+- Matchmaking classé : duels uniquement ; pas de confirmation de présence avant le début.
+- Quiz : banque de 90 questions (à enrichir et à faire relire) ; Impostor : 50 paires de mots.
+- Succès et quêtes recalculés depuis l'historique à chaque lecture : à indexer ou
+  matérialiser au-delà de quelques milliers de parties par joueur.
+- Pas de traduction (français uniquement), pas d'interface d'administration (SQL).
+- Le chat des groupes et des messages privés n'a ni réactions ni pièces jointes.
+
+## Prochaines étapes recommandées
+
+1. Projet Supabase réel + development build, parcours sur deux téléphones
+   ([setup.md](setup.md#6-tester-sur-un-vrai-téléphone)).
+2. Relevé des reçus Expo dans `push-dispatch` et métriques d'envoi.
+3. Serveur temps réel pour les jeux d'adresse et de dessin.
+4. Interface d'administration (signalements, sanctions, catalogue, banque de questions).

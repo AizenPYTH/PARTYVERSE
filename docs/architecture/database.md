@@ -79,3 +79,18 @@ Appliquée par `app_private.run_maintenance()` (chaque minute via pg_cron) :
 
 Suppression de compte : `auth.users` en cascade sur toutes les données personnelles ;
 les parties des adversaires sont conservées avec le joueur anonymisé (`SET NULL`).
+
+## Tables ajoutées en v0.2
+
+| Domaine | Tables | Accès client |
+| --- | --- | --- |
+| Moteurs de jeu | `match_server_state` (aucun), `match_private_state` (sa ligne) ; `matches.active_seats`, `settings`, `result_detail` ; `match_players.rank`, `score`, `left_at` | lecture |
+| Banques de jeu | `app_private.quiz_questions`, `app_private.impostor_words` | aucun |
+| Party | `party_sessions`, `party_rounds`, `party_scores` | lecture par les membres du salon |
+| Messages privés | `conversations`, `conversation_members`, `direct_messages` | lecture par les participants |
+| Groupes | `groups`, `group_members`, `group_invitations`, `group_messages`, `group_activity`, `group_challenges` | lecture par les membres (groupes publics visibles) |
+| Progression | `achievements`, `player_achievements`, `quest_definitions`, `player_quest_claims` | catalogue public, lignes personnelles |
+| Push | `push_tokens` (sans la colonne `token`), `app_private.push_outbox` | ses appareils / aucun |
+
+Toutes les écritures passent par des RPC `SECURITY DEFINER` (voir chaque migration) ;
+les RPC `engine_*` et `push_*_batch` ne sont exécutables que par `service_role`.

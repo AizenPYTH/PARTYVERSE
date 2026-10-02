@@ -28,3 +28,11 @@ secure_password_change = true
 
 [functions.delete-account]
 verify_jwt = true
+
+# Players call it with their JWT; the function re-identifies them.
+[functions.game-action]
+verify_jwt = true
+
+# Called by the scheduler with PUSH_DISPATCH_SECRET (not a user JWT).
+[functions.push-dispatch]
+verify_jwt = false

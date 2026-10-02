@@ -5,23 +5,24 @@
 Plateforme sociale de mini-jeux multijoueurs — iOS et Android d'abord (Expo / React Native), web préparé.
 Backend Supabase (PostgreSQL, Auth, Realtime, Edge Functions) avec des règles de jeu **autoritaires côté serveur**.
 
-| Accueil | Salon | Connect Four | Résultat | Profil |
-| --- | --- | --- | --- | --- |
-| ![](docs/screenshots/04-home-invitation.png) | ![](docs/screenshots/05-lobby-all-ready.png) | ![](docs/screenshots/06-connect-four-in-progress.png) | ![](docs/screenshots/07-result-victory.png) | ![](docs/screenshots/10-profile.png) |
+| Accueil | Salon | Bataille navale | Calcul Express | Impostor | Party | Quêtes |
+| --- | --- | --- | --- | --- | --- | --- |
+| ![](docs/screenshots/04-home-invitation.png) | ![](docs/screenshots/05-lobby-all-ready.png) | ![](docs/screenshots/13-battleship.png) | ![](docs/screenshots/14-mental-math.png) | ![](docs/screenshots/19-impostor.png) | ![](docs/screenshots/20-party.png) | ![](docs/screenshots/17-quests.png) |
 
 _Captures prises automatiquement par le test de bout en bout (`npm run test:e2e`) contre un vrai backend local._
 
-## Ce qui fonctionne (v0.1)
+## Ce qui fonctionne (v0.2)
 
-- **Comptes** : inscription e-mail, confirmation et réinitialisation par lien profond (PKCE), restauration de session, déconnexion de tous les appareils, suppression de compte (Edge Function).
-- **Onboarding** : pseudo unique vérifié en direct, avatar, jeux préférés, suggestions d'amis facultatives.
-- **Profils** : niveau/XP, titre, statistiques par jeu, historique, collection cosmétique attribuée par le serveur, confidentialité (stats publiques ou amis).
-- **Social** : recherche, demandes d'ami (politiques : tous / amis d'amis / personne), présence réelle (heartbeat), statuts (en ligne, absent, occupé, invisible), « rencontrés récemment », blocage, signalement avec preuves capturées côté serveur.
-- **Salons** : création (privé à code ou public), réglages par jeu validés serveur, prêts / démarrage, démarrage auto, transfert d'hôte, exclusion, spectateurs, chat avec messages rapides, filtre et limitation de débit, invitations (expiration 15 min), lien `partyverse://join/CODE`, nettoyage automatique.
-- **Connect Four** : coups validés et persistés par le serveur (verrou de ligne + version), chrono autoritaire, abandon, déconnexion = défaite au temps, revanche (le perdant commence), score de la série, XP et statistiques, **partie classée** via matchmaking Elo.
-- **Catalogue** des 10 jeux, honnête : seuls les jeux dont le moteur existe sont jouables ; les autres sont « Bientôt disponible ».
+- **10 jeux jouables, règles côté serveur** : Connect Four, Morpion, Chess Arena (pendule, Bullet/Blitz/Rapide, Elo par cadence), Reversi, Dames, Bataille navale (flottes secrètes), Quiz Rush (90 questions, 9 catégories), Calcul Express, Impostor (3–12 joueurs, rôles et votes secrets), Memory. Délais, abandons, départs, revanche, historique. Règles : [docs/game-design/rules.md](docs/game-design/rules.md).
+- **Party** : plusieurs jeux enchaînés dans le même salon (Classique, Rapide, Entre amis, Compétitif, Personnalisé), classement général, manches rejouées si annulées.
+- **Salons** : privé à code ou public, partie rapide, choix et réglages du jeu, places, prêts, démarrage, transfert d'hôte, exclusion, spectateurs, chat, invitations, lien `partyverse://join/CODE` (rejoué après inscription).
+- **Social** : profils (confidentialité), amis, présence réelle et statuts, favoris, blocage, signalement avec preuves, **messages privés** (lu/non-lu, anti-spam), **groupes** (rôles, chat, classement de la semaine, activité, défi collectif, salon de groupe).
+- **Progression** : XP/niveaux et cosmétiques, Elo par jeu et mode, **19 succès**, **quêtes quotidiennes et hebdomadaires**, série de jours, classements par jeu et XP (monde / amis).
+- **Notifications** : in-app et **push Expo** (opt-in, préférences par type, rappel du soir, ouverture au bon écran même app fermée) — vérifiées jusqu'à l'API Expo, pas sur un téléphone réel.
+- **Comptes** : inscription e-mail, confirmation et réinitialisation par lien profond (PKCE), sessions sécurisées, déconnexion de tous les appareils, suppression de compte.
 
-Voir [docs/roadmap.md](docs/roadmap.md) pour la suite et les limites connues.
+Les 6 jeux temps réel (dessin, billard, mini-golf, course…) restent « Bientôt disponible » et ne sont jamais proposés comme jouables.
+Voir [docs/roadmap.md](docs/roadmap.md) pour les limites connues et la suite.
 
 ## Démarrage
 
@@ -35,7 +36,7 @@ npx expo start                # puis i (iOS), a (Android) ou w (web)
 Sans variables d'environnement, l'application affiche un écran « Configuration requise » au lieu de simuler un backend.
 Configuration complète (redirections Auth, Edge Function, pg_cron, Realtime) : [docs/setup.md](docs/setup.md).
 
-> Expo Go suffit pour cette version (aucun module natif hors SDK). Un development build reste recommandé pour la suite.
+> Expo Go suffit pour tout sauf les notifications push, qui demandent un development build (EAS) — voir [docs/setup.md](docs/setup.md#6-tester-sur-un-vrai-téléphone).
 
 ## Scripts
 
@@ -45,7 +46,7 @@ Configuration complète (redirections Auth, Edge Function, pg_cron, Realtime) : 
 | `npm run lint` | ESLint (config Expo, règles React Compiler) |
 | `npm test` | Tests unitaires + composants (Jest, jest-expo, Testing Library) |
 | `npm run test:db` | Tests d'intégration SQL sur un PostgreSQL 16 jetable (RLS, RPC, règles de jeu) |
-| `npm run test:e2e` | Bout en bout : Postgres + Supabase Auth + PostgREST + build web + 2 joueurs Playwright |
+| `npm run test:e2e` | Bout en bout : Postgres + Supabase Auth + PostgREST + Edge Functions (Deno) + build web + 3 joueurs Playwright |
 | `npm run check` | typecheck + lint + tests |
 
 Détails : [docs/testing.md](docs/testing.md).
@@ -58,12 +59,16 @@ src/design-system/  Jetons (couleurs, typo, rayons), composants UI, couleurs OKL
 src/features/       Domaines : auth, onboarding, profile, social, lobbies, matches,
                     matchmaking, notifications, games/<jeu> (moteur, rendu, présentation)
 src/lib/            Client Supabase, RPC validées par Zod, erreurs, horloge serveur
-supabase/           migrations/ (schéma + RLS + RPC), functions/ (Edge Functions), tests/
+supabase/           migrations/ (schéma + RLS + RPC), functions/ (game-action, push-dispatch,
+                    delete-account, _shared/engines : moteurs de jeu TypeScript), tests/
 tests/              db/ (intégration SQL), e2e/ (bout en bout), fixtures/ (vecteurs partagés)
 docs/               Architecture, base de données, multijoueur, design, roadmap
 ```
 
 - [Vue d'ensemble et choix structurants](docs/architecture/overview.md)
+- [Moteurs de jeu et informations cachées](docs/architecture/games.md) · [Règles des jeux](docs/game-design/rules.md)
+- [Social : messages, groupes, confidentialité](docs/architecture/social.md) · [Notifications push](docs/architecture/push.md)
+- [Mise en place](docs/setup.md) · [Migrations](docs/migrations.md) · [Déploiement](docs/deploy.md) · [Tests](docs/testing.md)
 - [Base de données, RLS et RPC](docs/architecture/database.md)
 - [Modèle multijoueur](docs/architecture/multiplayer.md) · [Salons](docs/architecture/lobbies.md) · [Présence](docs/architecture/presence.md)
 - [Design system et écarts avec la maquette](docs/design/README.md)

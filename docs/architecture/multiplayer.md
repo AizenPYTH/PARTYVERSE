@@ -69,3 +69,11 @@ Le test E2E tourne volontairement **sans** Realtime pour valider ce mode.
 | Mode Party | orchestrateur | Enchaîne des `matches` dans un même salon (`party_sessions`, `party_rounds`), indépendant des moteurs. |
 
 Supabase Realtime n'est **pas** utilisé pour la simulation physique.
+
+## v0.2 — moteurs TypeScript
+
+Les jeux au tour par tour autres que Connect Four utilisent `network_model =
+'turn_based_engine'` : un moteur TypeScript pur exécuté par l'Edge Function
+`game-action`, le SQL gardant verrous, versions, échéances et finalisation. Phases
+simultanées (placement, réponses, votes), informations cachées et N joueurs sont pris
+en charge. Détails : [games.md](games.md).

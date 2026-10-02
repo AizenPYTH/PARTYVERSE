@@ -37,29 +37,34 @@ maquette dans `Icon.tsx`), AsyncStorage, expo-image, NativeWind.
 - **Écrans** : composition et navigation uniquement.
 - **Features** (`src/features/<domaine>`) : `api.ts` (schémas Zod + appels), `hooks.ts`
   (requêtes/mutations), composants spécifiques, logique pure testée (`*.test.ts`).
-- **Jeux** (`src/features/games/<jeu>`) : moteur pur (`engine.ts`), schéma d'état,
-  présentation (textes/couleurs), rendu (`Board.tsx`) et écran de partie. La route
-  `/match/[matchId]` choisit le rendu selon `game_id` ; aucun écran générique factice.
+- **Jeux** (`src/features/games/<jeu>`) : schéma d'état (Zod), présentation, rendu sur
+  `MatchShell` (barre, joueurs, chrono, résultat, chat). La route `/match/[matchId]`
+  choisit le rendu dans `MATCH_RENDERERS` ; un jeu sans rendu n'est jamais jouable.
 - **Serveur** : toute écriture passe par une RPC `SECURITY DEFINER` qui valide entrée,
   droits et état, dans une transaction. Les tables ne sont jamais écrites directement
   par le client, sauf colonnes explicitement accordées (profil, réglages).
 
 ## Interfaces de jeu
 
-Le serveur et le client partagent un contrat minimal plutôt qu'un moteur unique :
-
 | Concept | Où | Rôle |
 | --- | --- | --- |
-| `GameCatalog` | `public.game_catalog` | bornes de joueurs, modes, réglages autorisés, `network_model`, disponibilité |
-| `GameSession` | `public.matches` + `match_players` | état public versionné, tour, échéance, issue |
-| `GameAction` | RPC par jeu (`submit_connect_four_move`) | intention du joueur, version attendue |
-| `GameValidator` / `GameRules` | fonctions SQL du jeu (`app_private.c4_*`) ou Edge Function / serveur temps réel | validation autoritaire |
-| `GameResult` | `app_private.finalize_match` | résultat, stats, Elo, XP, retour au salon |
-| `GameRenderer` | `src/features/games/<jeu>` | rendu et présentation, sans autorité |
+| `GameCatalog` | `public.game_catalog` | bornes de joueurs, modes (avec réglages et classement), réglages autorisés, `network_model`, disponibilité |
+| `GameSession` | `public.matches` + `match_players` | état public versionné, sièges actifs, tour, échéance, issue, rang/score |
+| `GameAction` | `submit_connect_four_move` (SQL) ou Edge Function `game-action` | intention du joueur + version attendue |
+| `GameRules` | `app_private.c4_*` (SQL) ou `supabase/functions/_shared/engines/*.ts` | validation autoritaire, informations cachées |
+| `GameResult` | `app_private.finalize_match_results` | résultats N joueurs, stats, Elo (duel classé), XP, Party, groupes, succès |
+| `GameRenderer` | `src/features/games/<jeu>` + `MATCH_RENDERERS` | rendu et présentation, sans autorité |
 
-`network_model` décide de l'implémentation : `turn_based_sql` (Connect Four),
-`turn_based_edge` (échecs avec chess.js, quiz, impostor), `realtime_server`
-(billard, mini-golf, course, dessin — serveur Colyseus). Voir [multiplayer.md](multiplayer.md).
+`network_model` : `turn_based_sql` (Connect Four), `turn_based_engine` (tous les autres
+jeux actuels, moteur TypeScript exécuté par l'Edge Function), `realtime_server`
+(billard, mini-golf, course, dessin — à venir). Détails : [games.md](games.md),
+[multiplayer.md](multiplayer.md), règles : [../game-design/rules.md](../game-design/rules.md).
+
+## Autres domaines
+
+- [Social : messages privés, groupes, confidentialité](social.md)
+- [Notifications push](push.md)
+- [Party](../game-design/rules.md#party) et [progression](../game-design/progression.md)
 
 ## Sécurité (résumé)
 
@@ -69,7 +74,7 @@ Le serveur et le client partagent un contrat minimal plutôt qu'un moteur unique
 - Fonctions `search_path = ''`, identifiants qualifiés, verrous dans un ordre fixe (salon → partie).
 - Limitation de débit serveur (demandes d'ami, invitations, chat, codes de salon, signalements…).
 - Les tentatives de code de salon invalides sont comptées (la RPC ne lève pas d'erreur).
-- Secrets : seule la clé publique `anon` est dans l'app ; la clé service ne sert que dans l'Edge Function.
+- Secrets : seule la clé publique `anon` est dans l'app ; la clé service ne sert que dans les Edge Functions (`game-action`, `push-dispatch`, `delete-account`).
 
 ## Évolutivité
 

@@ -44,3 +44,36 @@ d'avantage en jeu.
 
 Elo séparé par jeu et par mode (`player_ratings`), uniquement pour les parties
 issues du matchmaking classé. Classements mondial et entre amis (`get_leaderboard`).
+
+Classement XP : mondial ou entre amis, cette semaine ou depuis toujours
+(`get_xp_leaderboard`, écran « Classement XP »).
+
+## Parties « comptées » (anti-abus)
+
+Quêtes et succès ne comptent que les parties **terminées avec au moins deux coups
+joués par des joueurs** (`app_private.counted_matches`) : un abandon immédiat ou un
+salon déserté ne fait rien progresser. La progression est **recalculée** à partir des
+tables sources à chaque lecture, jamais incrémentée par le client.
+
+## Succès (19)
+
+Catalogue `public.achievements` (métrique, seuil, récompense) : premières parties et
+paliers de parties (1, 10, 50, 200), victoires (1, 10, 50, 200), série de 5 victoires
+dans un jeu, 1300 Elo, 5 et 10 jeux différents, 3 et 7 jours d'affilée, 5 amis, membre
+d'un groupe, vainqueur d'une Party, niveaux 10 et 25. Débloqués automatiquement après
+chaque partie (et à l'ouverture de l'écran pour les succès sociaux), notifiés, payés
+une seule fois (`award_xp` source `achievement`, référence déterministe). Visibles sur
+le profil selon la confidentialité des statistiques.
+
+## Quêtes quotidiennes et hebdomadaires
+
+Pool `public.quest_definitions` ; chaque joueur reçoit **3 quêtes par jour et 3 par
+semaine** (rotation personnelle et déterministe, semaine du lundi, UTC). Exemples :
+jouer 3 parties, gagner 2 parties, jouer à 2 jeux différents, jouer avec un ami,
+jouer 3 manches de Party. Une quête terminée se récupère (`claim_quest`, verrou par
+joueur, réclamation unique par période, XP payée une fois).
+
+## Série de jours
+
+Nombre de jours UTC consécutifs, jusqu'à aujourd'hui ou hier, avec au moins une partie
+comptée. Rappel push du soir en option.

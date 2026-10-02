@@ -42,6 +42,7 @@ import { useParty } from '@/features/party/hooks';
 import { displayNameOf } from '@/features/profile/avatars';
 import { confirmAction } from '@/lib/confirm';
 import { errorMessage, toAppError } from '@/lib/errors';
+import { frenchList } from '@/lib/format';
 import { queryKeys } from '@/lib/queryClient';
 
 type SheetName = 'menu' | 'invite' | 'chat' | 'member' | 'game' | 'party' | null;
@@ -241,7 +242,7 @@ export default function LobbyScreen() {
         <Text variant="captionBold" align="center">
           {room.status === 'in_progress'
             ? 'Partie en cours'
-            : `${readyCount} / ${players.length} prêts${waitingFor.length ? ` · en attente de ${waitingFor.join(' et ')}` : ''}${
+            : `${readyCount} / ${players.length} prêts${waitingFor.length ? ` · en attente de ${frenchList(waitingFor)}` : ''}${
                 players.length < minPlayers ? ` · ${minPlayers - players.length} joueur manquant` : ''
               }`}
         </Text>
