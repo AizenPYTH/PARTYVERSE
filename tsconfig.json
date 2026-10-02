@@ -9,12 +9,16 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@engines/*": [
+        "./supabase/functions/_shared/engines/*"
       ]
     },
     "types": [
       "jest",
       "node"
-    ]
+    ],
+    "allowImportingTsExtensions": true
   },
   "include": [
     "**/*.ts",

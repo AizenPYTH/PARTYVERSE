@@ -7,8 +7,38 @@ export interface SettingOption {
   default: unknown;
 }
 
+const seconds = (value: unknown) => `${String(value)} s`;
+const named = (names: Record<string, string>) => (value: unknown) => names[String(value)] ?? String(value);
+
+/** Labels for every lobby setting key used by the catalog (supabase game_catalog.rules). */
 const LABELS: Record<string, { label: string; format: (value: unknown) => string }> = {
-  turn_seconds: { label: 'Temps par tour', format: (value) => `${String(value)} s` },
+  turn_seconds: { label: 'Temps par tour', format: seconds },
+  time_control: {
+    label: 'Cadence',
+    format: named({ bullet: 'Bullet 1+0', blitz: 'Blitz 3+2', rapid: 'Rapide 10+5' }),
+  },
+  questions: { label: 'Questions', format: (value) => `${String(value)}` },
+  question_seconds: { label: 'Temps par question', format: seconds },
+  category: {
+    label: 'Catégorie',
+    format: named({
+      mixed: 'Toutes',
+      general: 'Culture générale',
+      history: 'Histoire',
+      geography: 'Géographie',
+      science: 'Sciences',
+      cinema: 'Cinéma',
+      video_games: 'Jeux vidéo',
+      sport: 'Sport',
+      technology: 'Technologie',
+      music: 'Musique',
+    }),
+  },
+  difficulty: { label: 'Difficulté', format: named({ easy: 'Facile', normal: 'Normale', hard: 'Difficile', progressive: 'Progressive' }) },
+  pairs: { label: 'Paires', format: (value) => `${String(value)}` },
+  rounds: { label: 'Manches', format: (value) => `${String(value)}` },
+  mode: { label: 'Variante', format: named({ word: 'Mot proche', blank: 'Imposteur sans mot' }) },
+  discussion_seconds: { label: 'Discussion', format: seconds },
 };
 
 /** Lobby settings exposed by a game's server-side rules schema. */

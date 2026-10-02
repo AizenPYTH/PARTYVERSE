@@ -42,6 +42,90 @@ function EmblemArt({ kind, hue, scale }: { kind: EmblemKind; hue: number; scale:
   const s = (value: number) => Math.round(value * scale);
 
   switch (kind) {
+    case 'ttt':
+      return (
+        <View style={[styles.quiz, { width: s(84), gap: s(6) }]}>
+          {['X', 'O', '', '', 'X', 'O', 'O', '', 'X'].map((mark, i) => (
+            <View key={i} style={[styles.center, { width: s(24), height: s(24), borderRadius: s(6), backgroundColor: withAlpha('#ffffff', 0.12) }]}>
+              {mark ? (
+                <Text style={{ fontFamily: 'Unbounded_700Bold', fontSize: Math.max(s(14), 7) }} color={mark === 'X' ? colors.textPrimary : palette.emblem}>
+                  {mark}
+                </Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
+      );
+    case 'checkers': {
+      const square = Math.max(s(14), 6);
+      return (
+        <>
+          <View style={[StyleSheet.absoluteFill, styles.wrapGrid]}>
+            {Array.from({ length: 16 * 8 }, (_, i) => (
+              <View
+                key={i}
+                style={{ width: square, height: square, backgroundColor: (Math.floor(i / 16) + (i % 16)) % 2 === 0 ? palette.deep : palette.card }}
+              />
+            ))}
+          </View>
+          <View style={[styles.row, { gap: s(10) }]}>
+            {[colors.textPrimary, colors.midnight].map((color, i) => (
+              <View key={i} style={{ width: s(34), height: s(34), borderRadius: s(17), backgroundColor: color, borderWidth: Math.max(2, s(4)), borderColor: palette.emblem }} />
+            ))}
+          </View>
+        </>
+      );
+    }
+    case 'reversi':
+      return (
+        <View style={[styles.quiz, { width: s(70), gap: s(6) }]}>
+          {[0, 1, 1, 0].map((white, i) => (
+            <View key={i} style={{ width: s(30), height: s(30), borderRadius: s(15), backgroundColor: white ? colors.textPrimary : colors.midnight }} />
+          ))}
+        </View>
+      );
+    case 'battleship':
+      return (
+        <View style={{ width: s(96), height: s(72) }}>
+          <View style={[StyleSheet.absoluteFill, styles.wrapGrid, { gap: s(4) }]}>
+            {Array.from({ length: 20 }, (_, i) => (
+              <View key={i} style={{ width: s(16), height: s(16), borderRadius: s(3), backgroundColor: withAlpha('#ffffff', i === 7 ? 0 : 0.1) }} />
+            ))}
+          </View>
+          <View style={{ position: 'absolute', left: s(20), top: s(20), width: s(56), height: s(16), borderRadius: s(8), backgroundColor: palette.emblem }} />
+          <View style={{ position: 'absolute', left: s(60), top: s(40), width: s(16), height: s(16), borderRadius: s(8), backgroundColor: colors.coral }} />
+        </View>
+      );
+    case 'memory':
+      return (
+        <View style={[styles.row, { gap: s(8) }]}>
+          {[true, false, true].map((up, i) => (
+            <View
+              key={i}
+              style={[
+                styles.center,
+                {
+                  width: s(30),
+                  height: s(42),
+                  borderRadius: s(8),
+                  backgroundColor: up ? colors.textPrimary : palette.deep,
+                  borderWidth: up ? 0 : Math.max(1, s(2)),
+                  borderColor: palette.emblem,
+                  transform: [{ rotate: `${(i - 1) * 8}deg` }],
+                },
+              ]}
+            >
+              {up ? <View style={{ width: s(12), height: s(12), borderRadius: s(6), backgroundColor: palette.accent }} /> : null}
+            </View>
+          ))}
+        </View>
+      );
+    case 'math':
+      return (
+        <Text style={{ fontFamily: 'Unbounded_700Bold', fontSize: Math.max(s(30), 10), lineHeight: Math.max(s(36), 12) }} color={palette.emblem}>
+          7×8
+        </Text>
+      );
     case 'chess': {
       const square = Math.max(s(14), 6);
       return (

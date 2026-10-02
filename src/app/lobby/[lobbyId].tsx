@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 import { PlayerAvatar } from '@/components/PlayerAvatar';
@@ -11,8 +11,10 @@ import {
   Card,
   EmptyState,
   ErrorState,
+  Icon,
   IconButton,
   ListSkeleton,
+  PressableScale,
   Screen,
   Sheet,
   Text,
@@ -21,7 +23,7 @@ import {
   useToast,
 } from '@/design-system';
 import { useCurrentUserId } from '@/features/auth/store';
-import { useGame } from '@/features/games/catalog';
+import { isEngineGame, isPlayable, useCatalog, useGame } from '@/features/games/catalog';
 import { GameEmblem } from '@/features/games/components/GameEmblem';
 import { gameVisual } from '@/features/games/registry';
 import { lobbiesApi, type LobbyMember, type LobbyState } from '@/features/lobbies/api';
@@ -29,14 +31,15 @@ import { InviteFriendsSheet } from '@/features/lobbies/components/InviteFriendsS
 import { LobbyChatSheet } from '@/features/lobbies/components/LobbyChatSheet';
 import { EmptySlot, MemberSlot } from '@/features/lobbies/components/MemberSlot';
 import { useLobby, useLobbyMessages } from '@/features/lobbies/hooks';
-import { describeSetting } from '@/features/lobbies/settings';
+import { startLobbyMatch } from '@/features/lobbies/startMatch';
+import { describeSetting, gameSettings } from '@/features/lobbies/settings';
 import { messageText } from '@/features/lobbies/systemMessages';
 import { displayNameOf } from '@/features/profile/avatars';
 import { confirmAction } from '@/lib/confirm';
-import { errorMessage } from '@/lib/errors';
+import { errorMessage, toAppError } from '@/lib/errors';
 import { queryKeys } from '@/lib/queryClient';
 
-type SheetName = 'menu' | 'invite' | 'chat' | 'member' | null;
+type SheetName = 'menu' | 'invite' | 'chat' | 'member' | 'game' | null;
 
 export default function LobbyScreen() {
   const { lobbyId } = useLocalSearchParams<{ lobbyId: string }>();
@@ -49,6 +52,7 @@ export default function LobbyScreen() {
   const [busy, setBusy] = useState(false);
   const openedMatch = useRef<string | null>(null);
   const { game } = useGame(lobby.data?.lobby.game_id);
+  const catalog = useCatalog();
 
   const state = lobby.data;
   const matchId = state?.lobby.status === 'in_progress' ? state.lobby.current_match_id : null;
@@ -60,6 +64,26 @@ export default function LobbyScreen() {
       router.push({ pathname: '/match/[matchId]', params: { matchId } });
     }
   }, [matchId, state?.my_role]);
+
+  // Engine games are started by a client (the server re-validates): when the
+  // room is ready and starts automatically (auto-start, matchmaking, party).
+  const autoStarted = useRef<string | null>(null);
+  const roomStatus = state?.lobby.status;
+  useEffect(() => {
+    if (!state || !game || !isEngineGame(game) || roomStatus !== 'ready' || state.my_role !== 'player') return;
+    if (!state.lobby.auto_start && state.lobby.source !== 'matchmaking') return;
+    const key = `${state.lobby.id}:${state.lobby.matches_played}`;
+    if (autoStarted.current === key) return;
+    autoStarted.current = key;
+    startLobbyMatch(state.lobby.id, game)
+      .catch((error: unknown) => {
+        const code = toAppError(error).code;
+        if (!['PV_LOBBY_IN_GAME', 'PV_PLAYERS_NOT_READY', 'PV_STALE_STATE'].includes(code)) {
+          toast.show({ message: errorMessage(error), tone: 'error' });
+        }
+      })
+      .finally(() => void queryClient.invalidateQueries({ queryKey: queryKeys.lobby(lobbyId) }));
+  }, [roomStatus, game, state, lobbyId, queryClient, toast]);
 
   const act = async (action: () => Promise<unknown>, success?: string) => {
     setBusy(true);
@@ -161,7 +185,7 @@ export default function LobbyScreen() {
           onPress={() =>
             void act(async () => {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
-              await lobbiesApi.start(room.id);
+              if (game) await startLobbyMatch(room.id, game);
             })
           }
         />
@@ -175,7 +199,6 @@ export default function LobbyScreen() {
   })();
 
   const slots = Array.from({ length: room.max_players }, (_, index) => players[index] ?? null);
-  const turnSeconds = room.settings.turn_seconds;
 
   return (
     <Screen gap={18} footer={cta} refreshing={lobby.isRefetching} onRefresh={() => void lobby.refetch()}>
@@ -226,7 +249,9 @@ export default function LobbyScreen() {
       ) : null}
 
       <Card style={styles.settings}>
-        {turnSeconds !== undefined ? <SettingRow {...describeSetting('turn_seconds', turnSeconds)} /> : null}
+        {Object.entries(room.settings).map(([key, value]) => (
+          <SettingRow key={key} {...describeSetting(key, value)} />
+        ))}
         <SettingRow label="Visibilité" value={room.visibility === 'private' ? 'Privé' : 'Public'} />
         <SettingRow label="Spectateurs" value={room.allow_spectators ? 'Autorisés' : 'Non'} last={!room.ranked} />
         {room.ranked ? <SettingRow label="Mode" value="Classé" last /> : null}
@@ -236,6 +261,9 @@ export default function LobbyScreen() {
 
       <Sheet visible={sheet === 'menu'} onClose={() => setSheet(null)} title="Options du salon">
         {room.code ? <Button label={`Partager le code ${room.code}`} icon="share" variant="secondary" onPress={share} /> : null}
+        {isHost && room.status !== 'in_progress' && room.source !== 'matchmaking' ? (
+          <Button label="Changer de jeu" variant="secondary" icon="games" onPress={() => setSheet('game')} />
+        ) : null}
         {isHost && room.status !== 'in_progress' ? (
           <Button
             label={room.visibility === 'private' ? 'Rendre public' : 'Rendre privé'}
@@ -243,19 +271,28 @@ export default function LobbyScreen() {
             onPress={() => void act(() => lobbiesApi.updateSettings(room.id, { visibility: room.visibility === 'private' ? 'public' : 'private' }))}
           />
         ) : null}
-        {isHost && room.status !== 'in_progress' && game?.rules.settings?.turn_seconds ? (
-          <View style={styles.row}>
-            {game.rules.settings.turn_seconds.options.map((option) => (
-              <Button
-                key={String(option)}
-                label={`${String(option)} s`}
-                size="S"
-                variant={option === turnSeconds ? 'primary' : 'secondary'}
-                onPress={() => void act(() => lobbiesApi.updateSettings(room.id, { settings: { turn_seconds: option } }))}
-              />
-            ))}
-          </View>
-        ) : null}
+        {isHost && room.status !== 'in_progress' && game
+          ? gameSettings(game).map((setting) => (
+              <View key={setting.key} style={styles.settingEditor}>
+                <Text variant="caption" color={colors.textSecondary}>
+                  {setting.label}
+                </Text>
+                <View style={styles.row}>
+                  {setting.options.map((option) => (
+                    <Button
+                      key={String(option.value)}
+                      label={option.label}
+                      size="S"
+                      variant={option.value === room.settings[setting.key] ? 'primary' : 'secondary'}
+                      onPress={() =>
+                        void act(() => lobbiesApi.updateSettings(room.id, { settings: { ...room.settings, [setting.key]: option.value } }))
+                      }
+                    />
+                  ))}
+                </View>
+              </View>
+            ))
+          : null}
         <Button label="Quitter le salon" variant="destructive" icon="logout" onPress={() => void leave()} />
       </Sheet>
 
@@ -284,6 +321,37 @@ export default function LobbyScreen() {
             ) : null}
           </>
         ) : null}
+      </Sheet>
+
+      <Sheet visible={sheet === 'game'} onClose={() => setSheet(null)} title="Choisir le jeu">
+        <ScrollView style={styles.gameList} contentContainerStyle={styles.gameListContent}>
+          {(catalog.data ?? [])
+            .filter((item) => isPlayable(item) && item.max_players >= players.length)
+            .map((item) => (
+              <PressableScale
+                key={item.id}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: item.id === room.game_id }}
+                accessibilityLabel={item.name}
+                onPress={() =>
+                  void act(async () => {
+                    await lobbiesApi.changeGame(room.id, item.id);
+                    setSheet(null);
+                  })
+                }
+                style={[styles.gameRow, item.id === room.game_id && styles.gameRowActive]}
+              >
+                <GameEmblem gameId={item.id} height={44} width={44} radius={12} scale={0.4} />
+                <View style={styles.flex}>
+                  <Text variant="itemSm">{item.name}</Text>
+                  <Text variant="caption" color={colors.textSecondary}>
+                    {`${item.min_players === item.max_players ? item.min_players : `${item.min_players}–${item.max_players}`} joueurs · ${item.avg_duration_minutes} min`}
+                  </Text>
+                </View>
+                {item.id === room.game_id ? <Icon name="check" color={colors.mint} /> : null}
+              </PressableScale>
+            ))}
+        </ScrollView>
       </Sheet>
 
       <InviteFriendsSheet
@@ -376,4 +444,9 @@ const styles = StyleSheet.create({
   },
   flex: { flex: 1 },
   preview: { gap: 12 },
+  gameList: { maxHeight: 420 },
+  settingEditor: { gap: 8 },
+  gameListContent: { gap: 8 },
+  gameRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: 16, backgroundColor: colors.surface },
+  gameRowActive: { borderWidth: 1, borderColor: colors.mint },
 });

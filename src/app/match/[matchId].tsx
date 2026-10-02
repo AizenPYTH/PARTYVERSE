@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyState, ErrorState, LoadingDots, colors } from '@/design-system';
-import { ConnectFourMatch } from '@/features/games/connect-four/ConnectFourMatch';
+import { MATCH_RENDERERS } from '@/features/games/renderers';
 import { useMatch } from '@/features/matches/useMatch';
 import { errorMessage } from '@/lib/errors';
 
@@ -32,17 +32,16 @@ export default function MatchScreen() {
     );
   }
 
-  switch (state.match.game_id) {
-    case 'connect_four':
-      return <ConnectFourMatch state={state} match={match} />;
-    default:
-      return (
-        <View style={[styles.root, styles.padded]}>
-          <ScreenHeader title="Partie" />
-          <EmptyState title="Jeu non pris en charge" message="Mets à jour l’application pour jouer à ce jeu." />
-        </View>
-      );
+  const Renderer = MATCH_RENDERERS[state.match.game_id];
+  if (!Renderer) {
+    return (
+      <View style={[styles.root, styles.padded]}>
+        <ScreenHeader title="Partie" />
+        <EmptyState title="Jeu non pris en charge" message="Mets à jour l’application pour jouer à ce jeu." />
+      </View>
+    );
   }
+  return <Renderer state={state} match={match} />;
 }
 
 const styles = StyleSheet.create({

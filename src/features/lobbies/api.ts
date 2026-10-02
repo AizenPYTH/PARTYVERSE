@@ -155,6 +155,8 @@ export const lobbiesApi = {
       z.object({ id }).passthrough(),
     ),
   start: (lobbyId: string) => callRpc('start_lobby_match', { p_lobby: lobbyId }, id),
+  changeGame: (lobbyId: string, gameId: string) =>
+    callRpc('change_lobby_game', { p_lobby: lobbyId, p_game_id: gameId }, z.object({ id }).passthrough()),
   publicLobbies: (gameId: string) =>
     callRpc('list_public_lobbies', { p_game_id: gameId, p_limit: 30 }, z.array(publicLobbySchema)),
   invite: (lobbyId: string, userId: string) => callRpc('invite_to_lobby', { p_lobby: lobbyId, p_user: userId }, id),

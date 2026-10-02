@@ -1,12 +1,15 @@
 /** @type {import('jest').Config} */
-const moduleNameMapper = { '^@/(.*)$': '<rootDir>/src/$1' };
+const moduleNameMapper = {
+  '^@/(.*)$': '<rootDir>/src/$1',
+  '^@engines/(.*)$': '<rootDir>/supabase/functions/_shared/engines/$1',
+};
 
 module.exports = {
   projects: [
     {
       displayName: 'unit',
       preset: 'jest-expo/node',
-      testMatch: ['<rootDir>/src/**/*.test.ts'],
+      testMatch: ['<rootDir>/src/**/*.test.ts', '<rootDir>/supabase/functions/**/*.test.ts'],
       moduleNameMapper,
     },
     {

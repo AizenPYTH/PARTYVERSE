@@ -25,7 +25,7 @@ const step = async (name, run) => {
   }
 };
 
-const button = (page, name) => page.getByRole('button', { name, exact: typeof name === 'string' }).first();
+const button = (page, name) => page.getByRole('button', { name, exact: typeof name === 'string' }).filter({ visible: true }).first();
 // The in-game status line carries the authoritative countdown ("À toi de jouer · 0:58").
 const MY_TURN = /^À toi de jouer · \d+:\d{2}$/;
 const shot = (page, name) => page.screenshot({ path: `${ARTIFACTS}/${name}.png` });
@@ -180,6 +180,48 @@ async function main() {
     await second.page.getByText(MY_TURN).waitFor({ timeout: 15_000 });
     await first.page.getByText(/^Tour de .+ · \d+:\d{2}$/).waitFor({ timeout: 15_000 });
     await shot(second.page, '09-round-2-loser-starts');
+  });
+
+  await step('resigning ends round 2 and both return to the room', async () => {
+    await button(second.page, 'Menu de la partie').click();
+    await button(second.page, 'Abandonner la manche').click();
+    await second.page.getByText('Défaite', { exact: true }).waitFor({ timeout: 15_000 });
+    await first.page.getByText('Victoire', { exact: true }).waitFor({ timeout: 15_000 });
+    await button(first.page, 'Revanche').click();
+    await button(second.page, 'Revanche').click();
+  });
+
+  await step('host switches the same room to Tic-Tac-Toe (engine game via Edge Function)', async () => {
+    await button(nova.page, 'Options du salon').click();
+    await button(nova.page, 'Changer de jeu').click();
+    await nova.page.getByRole('radio', { name: 'Morpion' }).click();
+    await nova.page.getByText(/Nouveau jeu : Morpion/).waitFor({ timeout: 15_000 });
+    for (const player of [nova, leo]) {
+      await player.page.getByTestId('lobby-ready').waitFor({ timeout: 15_000 });
+      await player.page.getByTestId('lobby-ready').click();
+    }
+    await nova.page.getByTestId('lobby-start').waitFor({ timeout: 15_000 });
+    await nova.page.getByTestId('lobby-start').click();
+    await Promise.all([
+      nova.page.getByText('MORPION · MANCHE 3').waitFor({ timeout: 15_000 }),
+      leo.page.getByText('MORPION · MANCHE 3').waitFor({ timeout: 15_000 }),
+    ]);
+  });
+
+  await step('a full Tic-Tac-Toe game is validated by the engine and finalized by SQL', async () => {
+    const [x, o] = await playerOnTurn(nova, leo);
+    for (const [index, cell] of [0, 4, 1, 8, 2].entries()) {
+      const player = index % 2 === 0 ? x : o;
+      await player.page.getByText(MY_TURN).waitFor({ timeout: 15_000 });
+      await player.page.getByTestId(`ttt-cell-${cell}`).click();
+    }
+    await x.page.getByText('Victoire', { exact: true }).waitFor({ timeout: 15_000 });
+    await o.page.getByText('Défaite', { exact: true }).waitFor({ timeout: 15_000 });
+    await shot(x.page, '11-tic-tac-toe-victory');
+    const { rows } = await db.query(
+      `select m.outcome, m.result_detail ->> 'reason' as reason from public.matches m where m.game_id = 'tic_tac_toe' order by m.started_at desc limit 1`,
+    );
+    if (rows[0]?.outcome !== 'win' || rows[0]?.reason !== 'line') throw new Error(JSON.stringify(rows));
   });
 
   await step('profile shows server-side stats', async () => {

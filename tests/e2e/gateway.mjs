@@ -1,15 +1,21 @@
 // E2E gateway: a tiny stand-in for the Supabase API gateway.
 //   /auth/v1/* → Supabase Auth (GoTrue)   /rest/v1/* → PostgREST
+//   /functions/v1/<name> → Edge Function served by Deno (name=port arguments)
 //   /realtime/v1 is intentionally absent: the app must fall back to polling.
 // Also serves the exported web build with an SPA fallback.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const [apiPort, authPort, restPort, webPort, webRoot] = process.argv.slice(2);
+const [apiPort, authPort, restPort, webPort, webRoot, ...functionArgs] = process.argv.slice(2);
 const routes = [
   ['/auth/v1', Number(authPort)],
   ['/rest/v1', Number(restPort)],
+  // Supabase forwards /functions/v1/<name> to the function as /<name>.
+  ...functionArgs.map((arg) => {
+    const [name, port] = arg.split('=');
+    return [`/functions/v1/${name}`, Number(port), `/${name}`];
+  }),
 ];
 
 function cors(req, res) {
@@ -25,9 +31,9 @@ const api = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') return res.writeHead(204).end();
   const route = routes.find(([prefix]) => req.url.startsWith(prefix));
   if (!route) return res.writeHead(404, { 'content-type': 'application/json' }).end('{"error":"not_available_in_e2e"}');
-  const [prefix, port] = route;
+  const [prefix, port, base = ''] = route;
   const upstream = http.request(
-    { host: '127.0.0.1', port, method: req.method, path: req.url.slice(prefix.length) || '/', headers: { ...req.headers, host: `127.0.0.1:${port}` } },
+    { host: '127.0.0.1', port, method: req.method, path: base + req.url.slice(prefix.length) || '/', headers: { ...req.headers, host: `127.0.0.1:${port}` } },
     (response) => {
       const headers = { ...response.headers };
       delete headers['access-control-allow-origin'];

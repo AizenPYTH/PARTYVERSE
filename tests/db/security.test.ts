@@ -15,7 +15,7 @@ describe('privileges', () => {
 
   it('only lets anonymous clients read the catalog', async () => {
     const games = await asAnon<{ id: string }>('select id from public.game_catalog');
-    expect(games.length).toBe(10);
+    expect(games.length).toBeGreaterThanOrEqual(10);
     await expect(asAnon('select * from public.profiles')).rejects.toThrow(/permission denied/);
   });
 

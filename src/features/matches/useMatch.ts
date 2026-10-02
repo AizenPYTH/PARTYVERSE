@@ -7,10 +7,10 @@ import { AppError, toAppError } from '@/lib/errors';
 import { queryKeys } from '@/lib/queryClient';
 import { syncServerClock } from '@/lib/serverClock';
 
-import { matchesApi, type MatchState } from './api';
+import { engineApi, isEngineMatch, matchesApi, type MatchState } from './api';
 
-/** Grace before asking the server to enforce an expired turn. */
-const TIMEOUT_CLAIM_GRACE_MS = 1500;
+/** Grace before asking the server to enforce an expired deadline. */
+const TIMEOUT_CLAIM_GRACE_MS = 1200;
 
 /**
  * Live match state. The server is authoritative for moves, turns, clocks and
@@ -44,11 +44,15 @@ export function useMatch(matchId: string | undefined) {
     syncServerClock(state.server_time);
     queryClient.setQueryData(key, state);
   };
+  const refetch = () => queryClient.invalidateQueries({ queryKey: key });
+  const engine = query.data ? isEngineMatch(query.data) : false;
 
   const claimTimeout = useMutation({
-    mutationFn: () => matchesApi.claimTimeout(matchId!),
-    onSuccess: apply,
-    onError: () => void query.refetch(),
+    mutationFn: async () => {
+      if (engine) await engineApi.timeout(matchId!);
+      else apply(await matchesApi.claimTimeout(matchId!));
+    },
+    onSettled: () => refetch(),
   });
 
   const resign = useMutation({ mutationFn: () => matchesApi.resign(matchId!), onSuccess: apply });
@@ -58,13 +62,21 @@ export function useMatch(matchId: string | undefined) {
       matchesApi.submitConnectFourMove(matchId!, column, version),
     onSuccess: apply,
     onError: (error) => {
-      const appError = toAppError(error);
-      if (appError.code === 'PV_TURN_EXPIRED') claimTimeout.mutate();
+      if (toAppError(error).code === 'PV_TURN_EXPIRED') claimTimeout.mutate();
       else void query.refetch();
     },
   });
 
-  // Ask the server to enforce the clock once per expired turn.
+  /** Generic engine action (every game except the SQL Connect Four). */
+  const action = useMutation({
+    mutationFn: ({ payload, version }: { payload: unknown; version: number }) => engineApi.action(matchId!, version, payload),
+    onSettled: () => refetch(),
+    onError: (error) => {
+      if (toAppError(error).code === 'PV_TURN_EXPIRED') claimTimeout.mutate();
+    },
+  });
+
+  // Ask the server to enforce the clock once per expired deadline.
   const remaining = useCountdown(query.data?.match.status === 'active' ? query.data.match.turn_deadline : null);
   const claimedVersion = useRef<number | null>(null);
   const version = query.data?.match.version;
@@ -78,8 +90,10 @@ export function useMatch(matchId: string | undefined) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, version]);
 
-  return { query, remaining, claimTimeout, resign, connectFourMove };
+  return { query, remaining, claimTimeout, resign, connectFourMove, action };
 }
+
+export type MatchController = ReturnType<typeof useMatch>;
 
 export function moveErrorIsSilent(error: unknown): boolean {
   return error instanceof AppError && (error.code === 'PV_STALE_STATE' || error.code === 'PV_TURN_EXPIRED');

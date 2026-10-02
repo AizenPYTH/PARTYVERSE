@@ -228,3 +228,20 @@ describe('lobby chat', () => {
     expect(report!.evidence.messages.map((m) => m.body)).toEqual(['you are bad']);
   });
 });
+
+describe('changing the game of a room', () => {
+  it('lets the host switch games, resets readiness and validates the player count', async () => {
+    const host = await createUser();
+    const guest = await createUser();
+    const lobby = await createLobby(host);
+    await rpc(guest, 'join_lobby_by_code', [lobby.code, false]);
+    await rpc(guest, 'set_lobby_ready', [lobby.id, true]);
+
+    await expectError(rpc(guest, 'change_lobby_game', [lobby.id, 'tic_tac_toe']), 'PV_NOT_LOBBY_HOST');
+    await expectError(rpc(host, 'change_lobby_game', [lobby.id, 'pocket_pool']), 'PV_GAME_UNAVAILABLE');
+    const changed = await rpcRecord<{ game_id: string; settings: { turn_seconds: number } }>(host, 'change_lobby_game', [lobby.id, 'tic_tac_toe']);
+    expect(changed).toMatchObject({ game_id: 'tic_tac_toe', settings: { turn_seconds: 20 } });
+    const [member] = await admin<{ is_ready: boolean }>('select is_ready from public.lobby_members where lobby_id = $1 and user_id = $2', [lobby.id, guest.id]);
+    expect(member!.is_ready).toBe(false);
+  });
+});

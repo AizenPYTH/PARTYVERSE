@@ -21,9 +21,14 @@ export default function MatchmakingScreen() {
 
   const handle = (next: MatchmakingTicket | null) => {
     setTicket(next);
-    if (next?.status === 'matched' && next.match_id && !finished.current) {
+    if (next?.status !== 'matched' || finished.current) return;
+    if (next.match_id) {
       finished.current = true;
       router.replace({ pathname: '/match/[matchId]', params: { matchId: next.match_id } });
+    } else if (next.lobby_id) {
+      // Engine games: the room starts the match as soon as a player reaches it.
+      finished.current = true;
+      router.replace({ pathname: '/lobby/[lobbyId]', params: { lobbyId: next.lobby_id } });
     }
   };
 

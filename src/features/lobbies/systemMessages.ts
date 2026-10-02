@@ -29,6 +29,10 @@ export function messageText(message: LobbyMessage): string {
       return 'La partie commence !';
     case 'match_ended':
       return 'Partie terminée';
+    case 'match_aborted':
+      return 'Partie annulée';
+    case 'game_changed':
+      return `Nouveau jeu : ${typeof message.meta.name === 'string' ? message.meta.name : 'jeu'}`;
     default:
       return message.body;
   }

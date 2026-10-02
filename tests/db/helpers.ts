@@ -110,13 +110,26 @@ export interface LobbyRow {
   host_id: string;
 }
 
-export async function createLobby(host: TestUser, overrides: { visibility?: string; settings?: object } = {}) {
+export async function createLobby(
+  host: TestUser,
+  overrides: { visibility?: string; settings?: object; gameId?: string; maxPlayers?: number } = {},
+) {
   const rows = await asUser<LobbyRow>(
     host,
-    `select * from public.create_lobby($1, $2, null, true, false, $3::jsonb, 'Test')`,
-    ['connect_four', overrides.visibility ?? 'private', JSON.stringify(overrides.settings ?? {})],
+    `select * from public.create_lobby($1, $2, $4, true, false, $3::jsonb, 'Test')`,
+    [overrides.gameId ?? 'connect_four', overrides.visibility ?? 'private', JSON.stringify(overrides.settings ?? {}), overrides.maxPlayers ?? null],
   );
   return rows[0]!;
+}
+
+/** A full room of `count` ready players for `gameId` (host first). */
+export async function readyRoom(gameId: string, count: number, settings: object = {}) {
+  const players: TestUser[] = [];
+  for (let i = 0; i < count; i++) players.push(await createUser());
+  const lobby = await createLobby(players[0]!, { gameId, settings, maxPlayers: count });
+  for (const player of players.slice(1)) await rpc(player, 'join_lobby_by_code', [lobby.code, false]);
+  for (const player of players) await rpc(player, 'set_lobby_ready', [lobby.id, true]);
+  return { lobby, players };
 }
 
 export interface MatchState {

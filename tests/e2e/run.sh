@@ -13,13 +13,17 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CACHE="$ROOT/.cache/e2e"
 ARTIFACTS="$ROOT/tests/e2e/artifacts"
 PG_BIN="${PG_BIN:-$(dirname "$(command -v initdb 2>/dev/null || echo /usr/lib/postgresql/16/bin/initdb)")}"
-PG_PORT=54340 AUTH_PORT=54331 REST_PORT=54332 API_PORT=54321 WEB_PORT=8081
-POSTGREST_VERSION=v12.2.3 AUTH_VERSION=v2.177.0
+PG_PORT=54340 AUTH_PORT=54331 REST_PORT=54332 API_PORT=54321 WEB_PORT=8081 GAME_FN_PORT=54333
+POSTGREST_VERSION=v12.2.3 AUTH_VERSION=v2.177.0 DENO_VERSION=v2.5.6
 JWT_SECRET="partyverse-e2e-secret-that-is-at-least-32-chars"
 
 mkdir -p "$CACHE/bin" "$ARTIFACTS"
 if [[ ! -x "$CACHE/bin/postgrest" ]]; then
   curl -sSL "https://github.com/PostgREST/postgrest/releases/download/$POSTGREST_VERSION/postgrest-$POSTGREST_VERSION-linux-static-x64.tar.xz" | tar xJ -C "$CACHE/bin"
+fi
+if [[ ! -x "$CACHE/bin/deno" ]]; then
+  curl -sSL -o "$CACHE/deno.zip" "https://github.com/denoland/deno/releases/download/$DENO_VERSION/deno-x86_64-unknown-linux-gnu.zip"
+  unzip -o -q "$CACHE/deno.zip" -d "$CACHE/bin" && rm "$CACHE/deno.zip"
 fi
 if [[ ! -x "$CACHE/bin/auth" ]]; then
   curl -sSL "https://github.com/supabase/auth/releases/download/$AUTH_VERSION/auth-$AUTH_VERSION-x86.tar.gz" | tar xz -C "$CACHE/bin"
@@ -76,6 +80,14 @@ PIDS+=($!)
 wait_for "http://127.0.0.1:$REST_PORT/"
 
 ANON_KEY="$(node "$ROOT/tests/e2e/jwt.mjs" anon "$JWT_SECRET")"
+SERVICE_KEY="$(node "$ROOT/tests/e2e/jwt.mjs" service_role "$JWT_SECRET")"
+
+echo "→ Edge Function game-action (Deno)"
+SUPABASE_URL="http://127.0.0.1:$API_PORT" SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_KEY" PORT=$GAME_FN_PORT \
+DENO_DIR="$CACHE/deno" "$CACHE/bin/deno" run --quiet --allow-net --allow-env --allow-read \
+  --config "$ROOT/supabase/functions/game-action/deno.json" "$ROOT/supabase/functions/game-action/index.ts" >"$DATA_DIR/game-action.log" 2>&1 &
+PIDS+=($!)
+for _ in $(seq 1 150); do curl -sf -X OPTIONS "http://127.0.0.1:$GAME_FN_PORT/" >/dev/null 2>&1 && break; sleep 0.2; done
 
 echo "→ Web build"
 WEB_ROOT="$CACHE/web"
@@ -83,7 +95,7 @@ rm -rf "$WEB_ROOT"
 (cd "$ROOT" && EXPO_OFFLINE=1 CI=1 EXPO_PUBLIC_SUPABASE_URL="http://127.0.0.1:$API_PORT" EXPO_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
   npx expo export --platform web --clear --output-dir "$WEB_ROOT" >/dev/null)
 
-node "$ROOT/tests/e2e/gateway.mjs" $API_PORT $AUTH_PORT $REST_PORT $WEB_PORT "$WEB_ROOT" &
+node "$ROOT/tests/e2e/gateway.mjs" $API_PORT $AUTH_PORT $REST_PORT $WEB_PORT "$WEB_ROOT" "game-action=$GAME_FN_PORT" &
 PIDS+=($!)
 wait_for "http://127.0.0.1:$WEB_PORT/"
 

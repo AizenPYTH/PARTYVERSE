@@ -5,6 +5,8 @@ import { AppError, toAppError } from '@/lib/errors';
 import { queryKeys } from '@/lib/queryClient';
 import { requireSupabase } from '@/lib/supabase';
 
+import { SUPPORTED_GAMES } from './registry';
+
 const settingDefinition = z.object({ options: z.array(z.union([z.number(), z.string(), z.boolean()])), default: z.unknown() });
 
 export const gameSchema = z.object({
@@ -26,8 +28,11 @@ export const gameSchema = z.object({
 
 export type Game = z.infer<typeof gameSchema>;
 
-export const isPlayable = (game: Pick<Game, 'availability'>) =>
-  game.availability === 'available' || game.availability === 'beta';
+export const isPlayable = (game: Pick<Game, 'availability' | 'id'>) =>
+  (game.availability === 'available' || game.availability === 'beta') && SUPPORTED_GAMES.has(game.id);
+
+/** Engine games are started through the game-action Edge Function. */
+export const isEngineGame = (game: Pick<Game, 'network_model'>) => game.network_model === 'turn_based_engine';
 
 export const hasRankedMode = (game: Game) => game.modes.some((mode) => mode.ranked);
 
