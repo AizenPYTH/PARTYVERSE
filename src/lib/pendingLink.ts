@@ -13,7 +13,7 @@ const REPLAYABLE = [
   /^\/groups\/[0-9a-f-]{36}$/i,
   /^\/games\/[a-z0-9_]{2,40}$/,
   /^\/leaderboard\/[a-z0-9_]{2,40}$/,
-  /^\/(notifications|messages|groups|quests)$/,
+  /^\/(notifications|messages|groups|quests|rankings)$/,
 ];
 
 /** Normalizes a URL or path to "/a/b" (no scheme, host, query or trailing slash), or null if not replayable. */

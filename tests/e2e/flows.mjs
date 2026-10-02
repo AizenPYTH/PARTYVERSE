@@ -159,9 +159,12 @@ async function main() {
 
   await step('server persisted results, XP and moves', async () => {
     const { rows } = await db.query(
-      `select p.username, p.xp, s.wins, s.losses from public.profiles p
+      // Match XP only: the first win also unlocks achievements, paid separately.
+      `select p.username, s.wins, s.losses,
+              (select coalesce(sum(e.amount), 0) from public.xp_events e where e.user_id = p.id and e.source = 'match') as xp
+         from public.profiles p
          join public.player_game_stats s on s.user_id = p.id and s.game_id = 'connect_four'
-        where p.username = any($1) order by p.xp desc`,
+        where p.username = any($1) order by xp desc`,
       [[nova.handle, leo.handle]],
     );
     const winner = rows[0];
@@ -342,6 +345,23 @@ async function main() {
     await testId(nova.page, 'group-chat').click();
     await nova.page.getByText('Présent !').filter({ visible: true }).first().waitFor({ timeout: 20_000 });
     await shot(nova.page, '16-group-chat');
+  });
+
+  await step('progression: quests and achievements come from real matches, claims pay once', async () => {
+    await nova.page.goto(`${BASE_URL}/quests`);
+    await nova.page.getByText('Quêtes du jour').filter({ visible: true }).first().waitFor({ timeout: 15_000 });
+    await nova.page.getByText('Première partie').or(nova.page.getByText('Premiers pas')).filter({ visible: true }).first().waitFor({ timeout: 15_000 });
+    const { rows: me } = await db.query('select id from public.profiles where username = $1', [nova.handle]);
+    const unlocked = await db.query(`select count(*)::int as n from public.player_achievements where user_id = $1`, [me[0].id]);
+    if (unlocked.rows[0].n < 1) throw new Error('no achievement unlocked after several real matches');
+    const claim = nova.page.locator('[data-testid^="quest-claim-"]').filter({ visible: true }).first();
+    if (await claim.count()) {
+      await claim.click();
+      await nova.page.getByText('Récupérée ✓').filter({ visible: true }).first().waitFor({ timeout: 15_000 });
+      const paid = await db.query(`select count(*)::int as n from public.xp_events where user_id = $1 and source = 'quest'`, [me[0].id]);
+      if (paid.rows[0].n !== 1) throw new Error(`quest paid ${paid.rows[0].n} times`);
+    }
+    await shot(nova.page, '17-quests');
   });
 
   await step('profile shows server-side stats', async () => {

@@ -33,6 +33,7 @@ export default function MyProfileScreen() {
       ) : null}
       {profile.data ? (
         <View style={styles.actions}>
+          <Button label="Quêtes et succès" variant="secondary" style={styles.flex} testID="open-quests" onPress={() => router.push('/quests')} />
           <Button label="Inventaire" variant="secondary" style={styles.flex} onPress={() => router.push('/profile/inventory')} />
           <Button label="Personnaliser" style={styles.flex} onPress={() => router.push('/profile/edit')} />
         </View>

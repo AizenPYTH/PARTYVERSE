@@ -24,6 +24,8 @@ import { useInvitations } from '@/features/lobbies/hooks';
 import { useLobbyNavigation } from '@/features/lobbies/useLobbyNavigation';
 import { displayNameOf } from '@/features/profile/avatars';
 import { useHomeOverview } from '@/features/profile/hooks';
+import { useProgression } from '@/features/progression/hooks';
+import { questsSummary } from '@/features/progression/presentation';
 import { useFriends } from '@/features/social/hooks';
 import { describePresence } from '@/features/social/presence';
 import type { Friend } from '@/features/social/api';
@@ -33,6 +35,7 @@ export default function HomeScreen() {
   const overview = useHomeOverview();
   const friends = useFriends();
   const invitations = useInvitations();
+  const progression = useProgression();
   const catalog = useCatalog();
   const lobbyNav = useLobbyNavigation();
 
@@ -130,6 +133,8 @@ export default function HomeScreen() {
       ) : null}
 
       <HeroCard loading={lobbyNav.pending === 'create:connect_four'} onPress={() => void lobbyNav.quickLobby()} />
+
+      {progression.data ? <QuestsCard summary={questsSummary(progression.data.quests)} streak={progression.data.play_streak} /> : null}
 
       <View style={styles.section}>
         <SectionHeader title="Jeux" actionLabel="Catalogue" onAction={() => router.push('/games')} />
@@ -265,6 +270,8 @@ function GameCard({ game }: { game: Game }) {
 }
 
 const styles = StyleSheet.create({
+  questsRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  questsText: { flex: 1, gap: 2 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 8 },
   headerText: { flex: 1, gap: 2 },
   numeric: { fontVariant: ['tabular-nums'] },
@@ -294,3 +301,23 @@ const styles = StyleSheet.create({
   gamesCarousel: { gap: 12, paddingRight: 20 },
   gameCard: { width: 150, gap: 6 },
 });
+
+function QuestsCard({ summary, streak }: { summary: ReturnType<typeof questsSummary>; streak: number }) {
+  return (
+    <Card bordered onPress={() => router.push('/quests')} accessibilityLabel="Quêtes et succès" testID="home-quests">
+      <View style={styles.questsRow}>
+        <View style={styles.questsText}>
+          <Text variant="item">Quêtes du jour</Text>
+          <Text variant="caption" color={colors.textSecondary}>
+            {summary.claimable > 0
+              ? `${summary.claimable} récompense${summary.claimable > 1 ? 's' : ''} à récupérer`
+              : `${summary.dailyDone}/${summary.dailyTotal} terminées`}
+          </Text>
+        </View>
+        <Text variant="captionBold" color={streak > 0 ? colors.amber : colors.textTertiary}>
+          {`Série ${streak} j`}
+        </Text>
+      </View>
+    </Card>
+  );
+}

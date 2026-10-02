@@ -124,6 +124,8 @@ function RootNavigator() {
         <Stack.Screen name="messages/[userId]" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="groups/index" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="groups/[groupId]" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="quests" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="rankings" options={{ animation: 'slide_from_right' }} />
       </Stack.Protected>
       <Stack.Screen name="auth/callback" />
     </Stack>

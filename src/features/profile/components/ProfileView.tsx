@@ -2,10 +2,11 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { PlayerAvatar } from '@/components/PlayerAvatar';
-import { Card, ProgressBar, SectionHeader, Text, colors, presenceColor } from '@/design-system';
+import { Card, ProgressBar, SectionHeader, Tag, Text, colors, presenceColor } from '@/design-system';
 
 import { useCatalog } from '../../games/catalog';
 import { GameEmblem } from '../../games/components/GameEmblem';
+import { usePlayerAchievements } from '../../progression/hooks';
 import { describePresence } from '../../social/presence';
 import type { MatchHistoryEntry, PlayerProfile } from '../api';
 import { displayNameOf } from '../avatars';
@@ -28,6 +29,7 @@ export function ProfileView({
   const cosmetics = useCosmetics();
   const catalog = useCatalog();
   const { profile, progress, stats } = data;
+  const trophies = usePlayerAchievements(profile.id);
   const title = cosmetics.data?.find((item) => item.id === profile.title_id)?.name;
   const span = Math.max(progress.next_level_xp - progress.level_start_xp, 1);
   const remaining = Math.max(progress.next_level_xp - profile.xp, 0);
@@ -100,6 +102,17 @@ export function ProfileView({
 
       {inventory ? <CollectionPreview inventory={inventory} /> : null}
 
+      {trophies.data && trophies.data.length ? (
+        <View style={styles.section}>
+          <SectionHeader title="Succès" accent={{ text: String(trophies.data.length), color: colors.amber }} />
+          <View style={styles.trophies}>
+            {trophies.data.slice(0, 12).map((trophy) => (
+              <Tag key={trophy.id} label={trophy.name} color={colors.amber} />
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       {history && history.length ? (
         <View style={styles.section}>
           <SectionHeader title="Dernières parties" />
@@ -155,5 +168,6 @@ const styles = StyleSheet.create({
   stat: { width: '47.5%', flexGrow: 1, gap: 4 },
   section: { gap: 12 },
   historyRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  trophies: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   flex: { flex: 1, gap: 2 },
 });

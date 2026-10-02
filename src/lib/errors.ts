@@ -58,6 +58,8 @@ export const errorMessages = {
   PV_GROUP_FULL: 'Ce groupe est complet (50 membres).',
   PV_GROUP_LIMIT: 'Tu fais déjà partie de 20 groupes.',
   PV_ALREADY_IN_GROUP: 'Ce joueur fait déjà partie du groupe.',
+  PV_QUEST_NOT_FOUND: 'Cette quête n’est pas active aujourd’hui.',
+  PV_QUEST_INCOMPLETE: 'Quête pas encore terminée.',
   PV_PARTY_NO_GAMES: 'Aucun jeu ne convient à ce nombre de joueurs pour ce format.',
   PV_COLUMN_FULL: 'Cette colonne est pleine.',
   PV_TURN_EXPIRED: 'Temps écoulé pour ce tour.',

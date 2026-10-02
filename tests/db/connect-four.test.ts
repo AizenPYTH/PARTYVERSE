@@ -90,7 +90,8 @@ describe('results', () => {
     // Friendly lobbies never touch ratings.
     expect(winner.rating_after).toBeNull();
 
-    const [profile] = await admin<{ xp: string; level: number }>('select xp, level from public.profiles where id = $1', [seats[0].id]);
+    // Match XP only (achievements unlocked by this first win pay separately).
+    const [profile] = await admin<{ xp: string }>(`select sum(amount) as xp from public.xp_events where user_id = $1 and source = 'match'`, [seats[0].id]);
     expect(Number(profile!.xp)).toBe(40);
 
     const [lobbyRow] = await admin<{ status: string; matches_played: number }>(
