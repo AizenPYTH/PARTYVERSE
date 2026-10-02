@@ -87,7 +87,7 @@ export function findWinningCells(
 
 export function dropToken(state: ConnectFourState, col: number, seat: Seat): DropResult {
   if (!isValidColumn(col)) return { ok: false, error: 'PV_INVALID_MOVE' };
-  const row = state.columns[col].length;
+  const row = state.columns[col]?.length ?? ROWS;
   if (row >= ROWS) return { ok: false, error: 'PV_COLUMN_FULL' };
 
   const columns = state.columns.map((column, index) => (index === col ? [...column, seat] : column));

@@ -1,25 +1,32 @@
 {
   "expo": {
-    "name": "pv",
-    "slug": "pv",
-    "version": "1.0.0",
+    "name": "PARTYVERSE",
+    "slug": "partyverse",
+    "scheme": "partyverse",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0A14",
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "app.partyverse.mobile",
+      "supportsTablet": false,
+      "config": { "usesNonExemptEncryption": false }
     },
     "android": {
+      "package": "app.partyverse.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#8B5CFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
     },
     "plugins": [
       "expo-router",
@@ -27,7 +34,15 @@
       "expo-secure-store",
       "expo-image",
       "expo-font",
-      "expo-splash-screen"
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#0B0A14"
+        }
+      ]
     ]
   }
 }

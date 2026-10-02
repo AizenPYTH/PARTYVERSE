@@ -52,8 +52,8 @@ describe('move validation', () => {
     // Replaying the same version (double tap / retry) is rejected, not applied twice.
     await expectError(rpc(seats[0], 'submit_connect_four_move', [matchId, 3, state.match.version]), 'PV_STALE_STATE');
 
-    const [{ count }] = await admin<{ count: string }>('select count(*) from public.match_moves where match_id = $1', [matchId]);
-    expect(Number(count)).toBe(1);
+    const [moves] = await admin<{ count: string }>('select count(*) from public.match_moves where match_id = $1', [matchId]);
+    expect(Number(moves!.count)).toBe(1);
   });
 
   it('enforces the server clock', async () => {

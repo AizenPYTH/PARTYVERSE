@@ -1,0 +1,379 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Pressable, Share, StyleSheet, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+
+import { PlayerAvatar } from '@/components/PlayerAvatar';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  IconButton,
+  ListSkeleton,
+  Screen,
+  Sheet,
+  Text,
+  colors,
+  tint,
+  useToast,
+} from '@/design-system';
+import { useCurrentUserId } from '@/features/auth/store';
+import { useGame } from '@/features/games/catalog';
+import { GameEmblem } from '@/features/games/components/GameEmblem';
+import { gameVisual } from '@/features/games/registry';
+import { lobbiesApi, type LobbyMember, type LobbyState } from '@/features/lobbies/api';
+import { InviteFriendsSheet } from '@/features/lobbies/components/InviteFriendsSheet';
+import { LobbyChatSheet } from '@/features/lobbies/components/LobbyChatSheet';
+import { EmptySlot, MemberSlot } from '@/features/lobbies/components/MemberSlot';
+import { useLobby, useLobbyMessages } from '@/features/lobbies/hooks';
+import { describeSetting } from '@/features/lobbies/settings';
+import { messageText } from '@/features/lobbies/systemMessages';
+import { displayNameOf } from '@/features/profile/avatars';
+import { errorMessage } from '@/lib/errors';
+import { queryKeys } from '@/lib/queryClient';
+
+type SheetName = 'menu' | 'invite' | 'chat' | 'member' | null;
+
+export default function LobbyScreen() {
+  const { lobbyId } = useLocalSearchParams<{ lobbyId: string }>();
+  const lobby = useLobby(lobbyId);
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const [sheet, setSheet] = useState<SheetName>(null);
+  const [selected, setSelected] = useState<LobbyMember | null>(null);
+  const [busy, setBusy] = useState(false);
+  const openedMatch = useRef<string | null>(null);
+  const { game } = useGame(lobby.data?.lobby.game_id);
+
+  const state = lobby.data;
+  const matchId = state?.lobby.status === 'in_progress' ? state.lobby.current_match_id : null;
+
+  // Follow the room into the match as soon as the host starts it.
+  useEffect(() => {
+    if (matchId && openedMatch.current !== matchId && state?.my_role) {
+      openedMatch.current = matchId;
+      router.push({ pathname: '/match/[matchId]', params: { matchId } });
+    }
+  }, [matchId, state?.my_role]);
+
+  const act = async (action: () => Promise<unknown>, success?: string) => {
+    setBusy(true);
+    try {
+      await action();
+      if (success) toast.show({ message: success, tone: 'success' });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.lobby(lobbyId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home });
+    } catch (error) {
+      toast.show({ message: errorMessage(error), tone: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (lobby.isPending) {
+    return (
+      <Screen>
+        <ScreenHeader title="Salon" />
+        <ListSkeleton rows={4} />
+      </Screen>
+    );
+  }
+  if (lobby.error || !state) {
+    return (
+      <Screen>
+        <ScreenHeader title="Salon" />
+        <ErrorState message={errorMessage(lobby.error)} onRetry={() => void lobby.refetch()} />
+      </Screen>
+    );
+  }
+
+  const { lobby: room, members } = state;
+  const closed = ['finished', 'cancelled', 'expired'].includes(room.status);
+  const players = members.filter((member) => member.role === 'player');
+  const spectators = members.filter((member) => member.role === 'spectator');
+  const me = members.find((member) => member.user_id === userId);
+  const isHost = room.host_id === userId;
+  const host = members.find((member) => member.user_id === room.host_id);
+  const minPlayers = game?.min_players ?? 2;
+  const readyCount = players.filter((player) => player.is_ready).length;
+  const waitingFor = players.filter((player) => !player.is_ready).map((player) => (player.user_id === userId ? 'toi' : displayNameOf(player)));
+  const gameName = game?.name ?? '';
+  const title = room.name || `Salon de ${host ? displayNameOf(host) : 'PARTYVERSE'}`;
+  const subtitle = [gameName, room.visibility === 'private' ? 'salon privé' : 'salon public', room.code ? `code ${room.code}` : null]
+    .filter(Boolean)
+    .join(' · ');
+
+  const share = () =>
+    room.code
+      ? Share.share({ message: `Rejoins mon salon ${gameName} sur PARTYVERSE : partyverse://join/${room.code} (code ${room.code})` })
+      : undefined;
+
+  const leave = () =>
+    Alert.alert(
+      'Quitter le salon ?',
+      room.status === 'in_progress' && me?.role === 'player' ? 'La partie en cours sera comptée comme abandonnée.' : undefined,
+      [
+        { text: 'Rester', style: 'cancel' },
+        {
+          text: 'Quitter',
+          style: 'destructive',
+          onPress: () =>
+            void act(async () => {
+              await lobbiesApi.leave(room.id);
+              setSheet(null);
+              router.replace('/');
+            }),
+        },
+      ],
+    );
+
+  if (closed || !state.my_role) {
+    return (
+      <Screen>
+        <ScreenHeader title={title} subtitle={subtitle} />
+        {closed ? (
+          <EmptyState icon="lobbies" title="Ce salon est fermé" message="Crée un nouveau salon pour rejouer." actionLabel="Accueil" onAction={() => router.replace('/')} />
+        ) : (
+          <JoinPreview state={state} onJoin={(asSpectator) => void act(() => lobbiesApi.join(room.id, asSpectator))} busy={busy} />
+        )}
+      </Screen>
+    );
+  }
+
+  const allReady = players.length >= minPlayers && readyCount === players.length;
+  const cta = (() => {
+    if (room.status === 'in_progress' && matchId) {
+      return <Button label={me?.role === 'player' ? 'Reprendre la partie' : 'Regarder la partie'} onPress={() => router.push({ pathname: '/match/[matchId]', params: { matchId } })} />;
+    }
+    if (me?.role === 'spectator') {
+      return <Text variant="caption" color={colors.textSecondary} align="center">Tu regardes ce salon en spectateur.</Text>;
+    }
+    if (isHost && allReady) {
+      return (
+        <Button
+          label="Démarrer"
+          testID="lobby-start"
+          loading={busy}
+          onPress={() =>
+            void act(async () => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+              await lobbiesApi.start(room.id);
+            })
+          }
+        />
+      );
+    }
+    return me?.is_ready ? (
+      <Button label="✓ Prêt — annuler" variant="success" loading={busy} onPress={() => void act(() => lobbiesApi.setReady(room.id, false))} />
+    ) : (
+      <Button label="Je suis prêt" testID="lobby-ready" loading={busy} onPress={() => void act(() => lobbiesApi.setReady(room.id, true))} />
+    );
+  })();
+
+  const slots = Array.from({ length: room.max_players }, (_, index) => players[index] ?? null);
+  const turnSeconds = room.settings.turn_seconds;
+
+  return (
+    <Screen gap={18} footer={cta} refreshing={lobby.isRefetching} onRefresh={() => void lobby.refetch()}>
+      <ScreenHeader
+        title={title}
+        subtitle={subtitle}
+        right={<IconButton icon="settings" accessibilityLabel="Options du salon" onPress={() => setSheet('menu')} />}
+      />
+
+      <View style={[styles.banner, { backgroundColor: tint(gameVisual(room.game_id).hue).banner }]}>
+        <GameEmblem gameId={room.game_id} height={70} width={140} radius={0} scale={0.6} style={styles.transparent} />
+        <Text variant="captionBold" align="center">
+          {room.status === 'in_progress'
+            ? 'Partie en cours'
+            : `${readyCount} / ${players.length} prêts${waitingFor.length ? ` · en attente de ${waitingFor.join(' et ')}` : ''}${
+                players.length < minPlayers ? ` · ${minPlayers - players.length} joueur manquant` : ''
+              }`}
+        </Text>
+      </View>
+
+      <View style={styles.grid}>
+        {slots.map((member, index) =>
+          member ? (
+            <MemberSlot
+              key={member.user_id}
+              member={member}
+              isHost={member.user_id === room.host_id}
+              onPress={() => {
+                setSelected(member);
+                setSheet('member');
+              }}
+            />
+          ) : (
+            <EmptySlot key={`empty-${index}`} canInvite={index === players.length} onInvite={() => setSheet('invite')} />
+          ),
+        )}
+      </View>
+
+      {spectators.length ? (
+        <View style={styles.spectators}>
+          <Text variant="caption" color={colors.textSecondary}>{`Spectateurs · ${spectators.length}`}</Text>
+          <View style={styles.row}>
+            {spectators.slice(0, 8).map((spectator) => (
+              <PlayerAvatar key={spectator.user_id} player={spectator} size={32} />
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      <Card style={styles.settings}>
+        {turnSeconds !== undefined ? <SettingRow {...describeSetting('turn_seconds', turnSeconds)} /> : null}
+        <SettingRow label="Visibilité" value={room.visibility === 'private' ? 'Privé' : 'Public'} />
+        <SettingRow label="Spectateurs" value={room.allow_spectators ? 'Autorisés' : 'Non'} last={!room.ranked} />
+        {room.ranked ? <SettingRow label="Mode" value="Classé" last /> : null}
+      </Card>
+
+      <ChatPreview lobbyId={room.id} onOpen={() => setSheet('chat')} />
+
+      <Sheet visible={sheet === 'menu'} onClose={() => setSheet(null)} title="Options du salon">
+        {room.code ? <Button label={`Partager le code ${room.code}`} icon="share" variant="secondary" onPress={() => void share()} /> : null}
+        {isHost && room.status !== 'in_progress' ? (
+          <Button
+            label={room.visibility === 'private' ? 'Rendre public' : 'Rendre privé'}
+            variant="secondary"
+            onPress={() => void act(() => lobbiesApi.updateSettings(room.id, { visibility: room.visibility === 'private' ? 'public' : 'private' }))}
+          />
+        ) : null}
+        {isHost && room.status !== 'in_progress' && game?.rules.settings?.turn_seconds ? (
+          <View style={styles.row}>
+            {game.rules.settings.turn_seconds.options.map((option) => (
+              <Button
+                key={String(option)}
+                label={`${String(option)} s`}
+                size="S"
+                variant={option === turnSeconds ? 'primary' : 'secondary'}
+                onPress={() => void act(() => lobbiesApi.updateSettings(room.id, { settings: { turn_seconds: option } }))}
+              />
+            ))}
+          </View>
+        ) : null}
+        <Button label="Quitter le salon" variant="destructive" icon="logout" onPress={leave} />
+      </Sheet>
+
+      <Sheet visible={sheet === 'member' && !!selected} onClose={() => setSheet(null)} title={selected ? displayNameOf(selected) : ''}>
+        {selected ? (
+          <>
+            <Button
+              label="Voir le profil"
+              variant="secondary"
+              onPress={() => {
+                setSheet(null);
+                router.push({ pathname: '/player/[userId]', params: { userId: selected.user_id } });
+              }}
+            />
+            {isHost && selected.user_id !== userId ? (
+              <Button
+                label="Exclure du salon"
+                variant="destructive"
+                onPress={() =>
+                  void act(async () => {
+                    await lobbiesApi.kick(room.id, selected.user_id);
+                    setSheet(null);
+                  }, `${displayNameOf(selected)} a été exclu`)
+                }
+              />
+            ) : null}
+          </>
+        ) : null}
+      </Sheet>
+
+      <InviteFriendsSheet
+        lobbyId={room.id}
+        memberIds={members.map((member) => member.user_id)}
+        visible={sheet === 'invite'}
+        onClose={() => setSheet(null)}
+        onAddFriends={() => {
+          setSheet(null);
+          router.push('/friends/add');
+        }}
+      />
+      <LobbyChatSheet lobbyId={room.id} visible={sheet === 'chat'} onClose={() => setSheet(null)} />
+    </Screen>
+  );
+}
+
+function JoinPreview({ state, onJoin, busy }: { state: LobbyState; onJoin: (asSpectator: boolean) => void; busy: boolean }) {
+  const players = state.members.filter((member) => member.role === 'player');
+  const full = players.length >= state.lobby.max_players;
+  const inGame = state.lobby.status === 'in_progress';
+  return (
+    <View style={styles.preview}>
+      <Text variant="body" color={colors.textSecondary}>{`${players.length}/${state.lobby.max_players} joueurs`}</Text>
+      {!full && !inGame ? <Button label="Rejoindre le salon" onPress={() => onJoin(false)} loading={busy} /> : null}
+      {state.lobby.allow_spectators ? <Button label="Regarder" variant="secondary" onPress={() => onJoin(true)} loading={busy} /> : null}
+    </View>
+  );
+}
+
+function SettingRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  return (
+    <View style={[styles.settingRow, !last && styles.separator]}>
+      <Text variant="itemSm" color={colors.textSecondary}>
+        {label}
+      </Text>
+      <Text variant="itemSm">{value}</Text>
+    </View>
+  );
+}
+
+function ChatPreview({ lobbyId, onOpen }: { lobbyId: string; onOpen: () => void }) {
+  const messages = useLobbyMessages(lobbyId, true);
+  const last = [...(messages.data ?? [])].reverse().find((message) => message.kind !== 'system') ?? messages.data?.at(-1);
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel="Ouvrir le chat" onPress={onOpen} style={styles.chat}>
+      {last && last.kind !== 'system' ? (
+        <PlayerAvatar player={{ avatar_id: last.sender_avatar_id, username: last.sender_username, display_name: last.sender_display_name }} size={24} />
+      ) : null}
+      <Text variant="caption" numberOfLines={1} style={styles.flex}>
+        {last ? (
+          <>
+            {last.kind !== 'system' ? (
+              <Text variant="captionBold">{`${displayNameOf({ display_name: last.sender_display_name, username: last.sender_username })} `}</Text>
+            ) : null}
+            <Text variant="caption" color={colors.textSecondary}>
+              {messageText(last)}
+            </Text>
+          </>
+        ) : (
+          <Text variant="caption" color={colors.textTertiary}>
+            Dis bonjour au salon…
+          </Text>
+        )}
+      </Text>
+      <Text variant="metaBold" color={colors.textTertiary}>
+        Chat
+      </Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  banner: { height: 150, borderRadius: 24, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 16 },
+  transparent: { backgroundColor: 'transparent' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },
+  spectators: { gap: 8 },
+  row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  settings: { paddingVertical: 0 },
+  settingRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14 },
+  separator: { borderBottomWidth: 1, borderBottomColor: colors.elevated },
+  chat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  flex: { flex: 1 },
+  preview: { gap: 12 },
+});

@@ -106,7 +106,9 @@ describe('maintenance', () => {
     await admin(`update public.lobby_members set joined_at = now() - interval '10 minutes' where user_id = $1`, [idle.id]);
     await admin(`update public.presence set heartbeat_at = now() - interval '10 minutes' where user_id = $1`, [idle.id]);
 
-    const [{ result }] = await admin<{ result: Record<string, number> }>('select app_private.run_maintenance() as result');
+    const [{ result }] = (await admin<{ result: Record<string, number> }>('select app_private.run_maintenance() as result')) as [
+      { result: Record<string, number> },
+    ];
     expect(result.timeouts).toBeGreaterThanOrEqual(1);
     expect(result.disconnected_members).toBeGreaterThanOrEqual(1);
 

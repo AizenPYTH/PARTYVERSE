@@ -55,7 +55,7 @@ describe('connect four engine — invariants', () => {
     for (const seat of [0, 1, 0] as Seat[]) {
       const result = dropToken(state, 2, seat);
       if (!result.ok) throw new Error(result.error);
-      expect(result.row).toBe(state.columns[2].length);
+      expect(result.row).toBe(state.columns[2]?.length);
       state = result.state;
     }
     expect(state.columns[2]).toEqual([0, 1, 0]);

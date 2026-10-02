@@ -1,0 +1,30 @@
+# Supabase CLI configuration for local development (`supabase start`).
+# Production settings live in the Supabase dashboard; see docs/setup.md.
+project_id = "partyverse"
+
+[api]
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+major_version = 16
+
+[realtime]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "partyverse://"
+additional_redirect_urls = ["partyverse://**", "exp://**", "http://localhost:8081/**"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+secure_password_change = true
+
+[functions.delete-account]
+verify_jwt = true
