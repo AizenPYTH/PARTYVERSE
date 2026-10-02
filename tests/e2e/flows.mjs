@@ -265,6 +265,35 @@ async function main() {
     await shooter.page.getByText('Victoire', { exact: true }).waitFor({ timeout: 15_000 });
   });
 
+  await step('Calcul Express: simultaneous answers, server reveal and scoring', async () => {
+    await button(nova.page, 'Revanche').click();
+    await button(leo.page, 'Revanche').click();
+    await button(nova.page, 'Options du salon').click();
+    await button(nova.page, 'Changer de jeu').click();
+    await nova.page.getByRole('radio', { name: 'Calcul Express' }).click();
+    await nova.page.getByText(/Nouveau jeu : Calcul Express/).waitFor({ timeout: 15_000 });
+    for (const player of [nova, leo]) {
+      await player.page.getByTestId('lobby-ready').waitFor({ timeout: 15_000 });
+      await player.page.getByTestId('lobby-ready').click();
+    }
+    await nova.page.getByTestId('lobby-start').waitFor({ timeout: 15_000 });
+    await nova.page.getByTestId('lobby-start').click();
+    for (const player of [nova, leo]) await player.page.getByText(/^Choisis ta réponse/).waitFor({ timeout: 15_000 });
+    await nova.page.getByTestId('quiz-choice-0').click();
+    await nova.page.getByText(/^Réponse envoyée/).waitFor({ timeout: 15_000 });
+    await leo.page.getByText('1/2 ont répondu').waitFor({ timeout: 15_000 });
+    await leo.page.getByTestId('quiz-choice-1').click();
+    for (const player of [nova, leo]) {
+      await player.page.getByText(/^(Bonne réponse · \+\d+|Mauvaise réponse)/).waitFor({ timeout: 15_000 });
+    }
+    await shot(leo.page, '14-mental-math-reveal');
+    // The reveal step times out and the next question opens for both.
+    for (const player of [nova, leo]) await player.page.getByText('Question 2/10').waitFor({ timeout: 20_000 });
+    await button(leo.page, 'Menu de la partie').click();
+    await button(leo.page, 'Abandonner la manche').click();
+    await nova.page.getByText('Victoire', { exact: true }).waitFor({ timeout: 15_000 });
+  });
+
   await step('profile shows server-side stats', async () => {
     await first.page.goto(`${BASE_URL}/profile`);
     await first.page.getByText('Parties', { exact: true }).waitFor({ timeout: 15_000 });

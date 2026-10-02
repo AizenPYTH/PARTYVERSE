@@ -1,6 +1,8 @@
 import { battleship } from './battleship.ts';
 import { checkers } from './checkers.ts';
 import { chess } from './chess.ts';
+import { mentalMath } from './mental-math.ts';
+import { quizRush } from './quiz-rush.ts';
 import { reversi } from './reversi.ts';
 import { ticTacToe } from './tic-tac-toe.ts';
 import type { GameEngine } from './types.ts';
@@ -13,6 +15,8 @@ export const ENGINES: Record<string, GameEngine<any, any>> = {
   [reversi.id]: reversi,
   [checkers.id]: checkers,
   [battleship.id]: battleship,
+  [quizRush.id]: quizRush,
+  [mentalMath.id]: mentalMath,
 };
 
 // deno-lint-ignore no-explicit-any

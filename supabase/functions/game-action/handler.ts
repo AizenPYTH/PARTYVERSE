@@ -97,11 +97,9 @@ export function parseRequest(body: unknown): GameRequest | null {
 type AnyEngine = GameEngine<any, any>;
 
 export function serializeTransition(engine: AnyEngine, transition: Transition<unknown>, seats: number): SerializedTransition {
+  // Every seat is written, null included, so a private view never outlives its step.
   const privateStates: { seat: number; state: unknown }[] = [];
-  for (let seat = 0; seat < seats; seat++) {
-    const state = engine.privateView(transition.state, seat);
-    if (state !== null && state !== undefined) privateStates.push({ seat, state });
-  }
+  for (let seat = 0; seat < seats; seat++) privateStates.push({ seat, state: engine.privateView(transition.state, seat) ?? null });
   return {
     public_state: engine.publicView(transition.state),
     server_state: transition.state,

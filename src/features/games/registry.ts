@@ -71,4 +71,6 @@ export const SUPPORTED_GAMES: ReadonlySet<string> = new Set([
   'reversi',
   'checkers',
   'battleship',
+  'quiz_rush',
+  'mental_math',
 ]);

@@ -16,7 +16,8 @@ describe('battleship hidden information', () => {
     expect(seenByB.match.state.placed).toEqual([true, false]);
     expect(seenByB.private_state).toBeNull();
     expect(JSON.stringify(seenByB)).not.toContain('"cells"');
-    expect(await asUser(b, 'select * from public.match_private_state where match_id = $1', [matchId])).toEqual([]);
+    const visible = await asUser<{ seat: number; state: unknown }>(b, 'select seat, state from public.match_private_state where match_id = $1', [matchId]);
+    expect(visible).toEqual([{ seat: 1, state: null }]);
     await expect(asUser(b, 'select * from public.match_server_state where match_id = $1', [matchId])).rejects.toThrow(/permission denied/);
     const moves = await asUser<{ action: unknown }>(b, 'select action from public.match_moves where match_id = $1', [matchId]);
     expect(JSON.stringify(moves)).not.toContain('carrier');
