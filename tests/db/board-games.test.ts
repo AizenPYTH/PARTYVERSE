@@ -56,3 +56,24 @@ describe('checkers through the game-action handler', () => {
     expect(final.match).toMatchObject({ status: 'finished', winner_seat: 1 });
   });
 });
+
+describe('memory through the game-action handler', () => {
+  it('never publishes face-down cards and keeps the turn after a pair', async () => {
+    const { matchId, seats } = await startEngineMatch('memory_match', 3, { pairs: 8 });
+    const [row] = await admin<{ deck: number[] }>(`select state -> 'deck' as deck from public.match_server_state where match_id = $1`, [matchId]);
+    const deck = row!.deck;
+    const initial = await matchState<{ cards: (number | null)[] }>(seats[1]!, matchId);
+    expect(initial.match.state.cards.every((c) => c === null)).toBe(true);
+    expect(JSON.stringify(initial.match.state)).not.toContain('deck');
+
+    const first = 0;
+    const twin = deck.findIndex((symbol, index) => index !== first && symbol === deck[first]);
+    await act(matchId, seats[0]!, { type: 'flip', card: first });
+    await expectError(act(matchId, seats[1]!, { type: 'flip', card: twin }), 'PV_NOT_YOUR_TURN');
+    await act(matchId, seats[0]!, { type: 'flip', card: twin });
+    const after = await matchState<{ cards: (number | null)[]; scores: number[] }>(seats[2]!, matchId);
+    expect(after.match.current_turn_seat).toBe(0);
+    expect(after.match.state.scores).toEqual([1, 0, 0]);
+    expect(after.match.state.cards.filter((c) => c !== null)).toHaveLength(2);
+  });
+});

@@ -6,6 +6,8 @@ import { BattleshipMatch } from './battleship/BattleshipMatch';
 import { CheckersMatch } from './checkers/CheckersMatch';
 import { ChessMatch } from './chess/ChessMatch';
 import { ConnectFourMatch } from './connect-four/ConnectFourMatch';
+import { ImpostorMatch } from './impostor/ImpostorMatch';
+import { MemoryMatch } from './memory/MemoryMatch';
 import { QuizMatch } from './quiz/QuizMatch';
 import { ReversiMatch } from './reversi/ReversiMatch';
 import { TicTacToeMatch } from './tic-tac-toe/TicTacToeMatch';
@@ -25,4 +27,6 @@ export const MATCH_RENDERERS: Record<string, MatchRenderer> = {
   battleship: BattleshipMatch,
   quiz_rush: QuizRushMatch,
   mental_math: MentalMathMatch,
+  impostor: ImpostorMatch,
+  memory_match: MemoryMatch,
 };
